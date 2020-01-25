@@ -73,6 +73,7 @@ function init() {
 
   const iframeID = 'iframe';
   const iframeURI = 'moby_dick_chapter.html';
+//  const iframeURI = 'chapter1.html';
 
   const paginator = new Paginator(iframeID, iframeURI);
 }
