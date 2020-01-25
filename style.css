@@ -1,0 +1,68 @@
+
+
+
+body {
+    font-family: sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: white;
+    color: black;
+}
+
+
+/* the outermost container in <body> */
+#container {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+
+#hider-left {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 170px;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+}
+
+#hider-right {
+    display: block;
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 170px;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+}
+
+/* a <div> around the <iframe> */
+#iframe-container {
+    display: block;
+    position: fixed;
+    top: 50px;
+    left: 200px;
+    right: 200px;
+    bottom: 50px;
+}
+
+
+#iframe {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    border-style: none; 
+    border-width: 0;
+}
+
+
