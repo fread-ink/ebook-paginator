@@ -5,6 +5,8 @@ Uses an `<iframe>` to show an html document and injects the CSS rules `column-wi
 
 Pressing `space` progresses to the next page.
 
+A demo is [hosted here](https://juul.io/paginator/).
+
 This example demonstrates an issue with rendering time for column layouts on long documents.
 
 Here are rendering times for various browsers:
