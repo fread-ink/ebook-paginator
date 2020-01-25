@@ -20,6 +20,28 @@ body {
     bottom: 0;
 }
 
+#debugger {
+    position: fixed;
+    display: block;
+/*    border: 1px solid blue; */
+    left: 0;
+    right: 0;
+    top: 50px;
+    height: 0;
+    z-index: 1000;
+}
+
+#bottom-hider {
+    position: fixed;
+    display: block;
+    background-color: rgba(0, 0, 0, 0.8);
+/*    border-top: 1px solid red;  */
+    left: 170px;
+    right: 170px;
+    bottom: 50px;
+    height: 0;
+    z-index: 1200;
+}
 
 #hider-left {
     display: block;
