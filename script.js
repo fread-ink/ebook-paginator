@@ -33,6 +33,9 @@ class Paginator {
     this.walker = this.iDoc.createTreeWalker(this.iDoc, NodeFilter.SHOW_TEXT); 
     this.hideHalfShownLines2();
 
+//    const p = this.iDoc.getElementById('paragraph');
+//    console.log('line-height:', this.iWin.getComputedStyle(p));
+
   }
 
   countPages() {
@@ -179,20 +182,19 @@ class Paginator {
 
       // We didn't go far enough
       if(inView < 0) {
-//        console.log("not far enough", cur);
+        console.log("not far enough", cur);
         if(!walker.nextNode()) break;
         continue;
       }
       
       // We went too far
       if(inView > 0) {
-//        console.log("too far", cur);
+        console.log("too far", cur);
         walker.previousNode();
         break;
       }
-
+      console.log("node:", cur)
       range.selectNodeContents(cur);
-
       
       var lastTop = -1;
       tooFar = false;
