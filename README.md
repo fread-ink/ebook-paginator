@@ -9,7 +9,7 @@ Here are the calculation times for a 500 page document for various browsers:
 
 A demo is [hosted here](https://juul.io/paginator-chunk/).
 
-Pressing `space` progresses to the next page . You can also press `s` to start a synchronous test to calculate the page boundaries. Open the console to see the timing measurement.
+Pressing `space` progresses to the next page or `b` for previous. You can also press `t` to start a synchronous test to calculate the page boundaries. Open the console to see the timing measurement.
 
 This example requires that you have permissions to access the document inside the iframe from javascript in the main document.
 

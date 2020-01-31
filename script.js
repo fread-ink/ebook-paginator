@@ -97,6 +97,8 @@ class Paginator {
       this.columnLayout = true;
     }
 
+    this.curPage = 0;
+    this.pages = [];
     this.page = document.getElementById(pageID);
 
     // Use column-based layout? (slow on WebKit but may be more accurate)
@@ -112,7 +114,7 @@ class Paginator {
     this.loadChapter(chapterURI, function(err) {
       if(err) return console.error(err);
 
-      this.paginate(this.doc.body);
+      this.firstPage();
 
     }.bind(this));
   }
@@ -249,24 +251,83 @@ class Paginator {
     
     return null;
   }
+
+  firstPage() {
+
+    this.pages[0] = {
+      node: this.doc.body,
+      offset: 0
+    };
+    this.curPage = 0;
+    
+    const hasAnotherPage = this.paginate(this.doc.body)
+    if(!hasAnotherPage) return false;
+
+    this.pages[this.curPage+1] = {
+      node: this.location,
+      offset: this.locationOffset
+    }
+    return true;
+  }
   
-  paginate(source) {
-    var tmp, i, shouldBreak, toRemoveNode;
+  nextPage() {
+    
+    const hasAnotherPage = this.paginate()
+    if(!hasAnotherPage) return false;
+
+    this.curPage++;
+    this.pages[this.curPage+1] = {
+      node: this.location,
+      offset: this.locationOffset
+    }
+
+    return true;
+  }
+
+  prevPage() {
+    this.curPage--;
+    if(this.curPage < 0) {
+      this.curPage = 0;
+      return false;
+    }
+    const page = this.pages[this.curPage];
+    
+    // TODO implement
+    if(!page) throw new Error("Unknown starting point for page");
+    
+    return this.paginate(page.node, page.offset);
+  }
+
+  paginate(fromNode, offset) {
+    var tmp, i, shouldBreak, toRemoveNode, node;
     var target = this.page;
-    var node = source;
     var breakAtDepth = 0;
     var depth = 1; // current depth in DOM hierarchy
 
-    if(this.location) {
-      this.page.innerHTML = '';
-      node = this.location;
-      
+    this.page.innerHTML = '';
+    
+    if(fromNode) {
+      this.location = fromNode;
+      this.locationOffset = offset;
+    }
+    
+    node = this.location;
+    if(!node) return false;
+
+    // if we're not on the first node in the source document
+    if(node.tagName !== 'body') {
+
+      // Re-construct the ancestor structure
+      // so content in the new page has the same structure
+      // as in the source document
       let {tree, innerMost} = cloneAncestors(node);
       if(tree) {
-        this.page.appendChild(tree);
+        target.appendChild(tree);
         target = innerMost;
       }
-            
+
+      // If the last page ended in the middle of a text node
+      // create a new text node with the remaining content
       if(this.locationOffset) {
         tmp = document.createTextNode(node.textContent.slice(this.locationOffset));
       } else {
@@ -276,9 +337,6 @@ class Paginator {
       target = tmp;
     }
 
-    
-    if(!node) return null; // no more pages left
-    
     while(node) {
       // Get next node in document order recursively
       // and shallow copy the node to the corresponding
@@ -299,7 +357,10 @@ class Paginator {
         
 	    } else {
 
-		    while(node) {          
+        // Don't proceed to parent of body element in source document
+        if(node.tagName === 'body') return false;
+        
+		    while(node) {
 			    node = node.parentNode;
           target = target.parentNode;
           depth--;
@@ -314,6 +375,7 @@ class Paginator {
 		    }
 	    }
 
+      if(!node) return false; // no more pages
       
       // We found a node that doesn't want us to break inside.
       // Save the current location and depth so we can break before
@@ -336,11 +398,9 @@ class Paginator {
         if(breakAtDepth && depth >= breakAtDepth) {
           target = toRemoveNode.parentNode;
           toRemoveNode.parentNode.removeChild(toRemoveNode);
-          node = this.location;
           return true;
         }
         
-        // TODO check if node is not allowed to be broken
         if(target.nodeType === Node.TEXT_NODE) {
           const offset = this.findOverflowOffset(target);
           tmp = target.parentNode;
@@ -390,7 +450,7 @@ class Paginator {
     switch(e.charCode) {
       
     case 32: // space
-      this.paginate();
+      this.nextPage();
       break;
     case 116: // t
       this.speedTest();
@@ -403,7 +463,8 @@ class Paginator {
       break;
       
     case 98: // 'b'
-
+      this.prevPage();
+      break;
     }
   }
 
