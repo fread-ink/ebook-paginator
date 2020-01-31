@@ -119,16 +119,6 @@ class Paginator {
     }.bind(this));
   }
 
-  debug(node) {
-    const debugEl = document.getElementById('debug');
-    const rect = node.getBoundingClientRect();
-    console.log("rect", rect);
-    debugEl.style.top = rect.top + 'px';
-    debugEl.style.left = rect.left + 'px';
-    debugEl.style.width = rect.width + 'px';
-    debugEl.style.height = (rect.height || 1) + 'px';
-  }
-
   // Does the node overflow the bottom of the page
   didOverflow(node) {
     var rect;
@@ -299,7 +289,7 @@ class Paginator {
   }
 
   paginate(fromNode, offset) {
-    var tmp, i, shouldBreak, toRemoveNode, node;
+    var tmp, i, shouldBreak, toRemoveNode, node, forceBreak;
     var target = this.page;
     var breakAtDepth = 0;
     var depth = 1; // current depth in DOM hierarchy
@@ -385,13 +375,14 @@ class Paginator {
         this.location = node;
         toRemoveNode = target;
         breakAtDepth = depth;
+
         // We must have passed the "break-inside:nope" node without overflowing
       } else if(depth <= breakAtDepth && node !== this.location) {
         breakAtDepth = 0;
         toRemoveNode = null;
       }
       
-      if(this.didOverflow(target)) {
+      if(this.didOverflow(target) || shouldBreak === 'before') {
         this.location = node;
 
         // If we're at or inside the element that doesn't want us to break inside
@@ -401,7 +392,7 @@ class Paginator {
           return true;
         }
         
-        if(target.nodeType === Node.TEXT_NODE) {
+        if(target.nodeType === Node.TEXT_NODE && shouldBreak !== 'before') {
           const offset = this.findOverflowOffset(target);
           tmp = target.parentNode;
           tmp.removeChild(target);

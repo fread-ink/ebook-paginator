@@ -26,15 +26,8 @@ body {
     right: 200px;
     bottom: 50px;
     background-color: #888888;
-
 }
 
-
-#debug {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 1px;
-    bottom: 1px;
-    border: 1px solid red;
+h2 {
+    break-before: page;
 }

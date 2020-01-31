@@ -37,7 +37,7 @@ Currently the `break-inside` values of 'avoid' and 'avoid-page' are handled corr
 
 ## break-before / break-after
 
-These are not handled by this library and only partially handled by current browsers.
+Currently only `break-before` with a values of 'always', 'all', 'page', 'left', 'right', 'recto' or 'verso' is handled by this library. They are all treated the same since currently only single-page pagination is supported. Not all of these values work in all browsers since they may be rejected by the browser's CSS parser if they are not recognized.
 
 While `break-inside` can be used to avoid page breaks inside an element, `break-before` and `break-after` do nothing in firefox (not even when printing) but when set to 'column' then they do force a break when inside a column, but only on webkit and chrome. This works even when not printing. We could re-write the othersimilar values e.g. 'page', 'left', 'right', 'verso' and 'lefto' to 'column' and that would then work correctly in webkit.
 
@@ -51,8 +51,10 @@ This is with WebKitGTK+ 2.26.2.
 
 # ToDo
 
+* Get rid of this.location and this.locationOffset
+* Take into account element bottom padding and margin
 * Wait for images to load
 * Handle situations where not even a single node could be added to the page before overflow
 * Pre-paginate several pages and keep buffer of past pages, then move between them
-* Add deep-clone of non-container nodes
-* Add support for at least the 'truthy' values for `break-before` and `break-after`
+* Add support for at least the 'truthy' values for `break-after`
+* Handle right-to-left pages
