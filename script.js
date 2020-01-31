@@ -48,16 +48,21 @@ function request(uri, isBinary, cb) {
 // Shallow clone the structure of ancestors back up to <body>
 function cloneAncestors(node) {
   var ret, tmp;
-
+  var innerMost;
+  
   while(node.parentNode && node.parentNode.tagName !== 'body') {
     tmp = node.parentNode.cloneNode() // shallow clone
+    if(!innerMost) innerMost = tmp;
     if(ret) {
       tmp.appendChild(ret);
     }
     ret = tmp;
     node = node.parentNode;
   }
-  return ret;
+  return {
+    tree: ret,
+    innerMost: innerMost
+  };
 }
 
 
@@ -103,6 +108,15 @@ class Paginator {
     }.bind(this));
   }
 
+  debug(node) {
+    const debugEl = document.getElementById('debug');
+    const rect = node.getBoundingClientRect();
+    console.log("rect", rect);
+    debugEl.style.top = rect.top + 'px';
+    debugEl.style.left = rect.left + 'px';
+    debugEl.style.width = rect.width + 'px';
+    debugEl.style.height = (rect.height || 1) + 'px';
+  }
 
   // Does the node overflow the bottom of the page
   didOverflow(node) {
@@ -194,10 +208,10 @@ class Paginator {
       this.page.innerHTML = '';
       node = this.location;
       
-      tmp = cloneAncestors(node);
-      if(tmp) {
-        this.page.appendChild(tmp);
-        target = tmp;
+      let {tree, innerMost} = cloneAncestors(node);
+      if(tree) {
+        this.page.appendChild(tree);
+        target = innerMost;
       }
             
       if(this.locationOffset) {
@@ -209,13 +223,13 @@ class Paginator {
       target = tmp;
     }
 
+    
     if(!node) return null; // no more pages left
     
     while(node) {
       // Get next node in document order recursively
       // and shallow copy the node to the corresponding
       // spot in the target location (inside this.page)
-      
       
 	    if(node.childNodes.length) {
         node = node.firstChild;
@@ -230,7 +244,8 @@ class Paginator {
         target = tmp;
         
 	    } else {
-		    while(node) {
+
+		    while(node) {          
 			    node = node.parentNode;
           target = target.parentNode;
           
@@ -243,13 +258,13 @@ class Paginator {
 			    }
 		    }
 	    }
-      
+
       if(this.didOverflow(target)) {
         this.location = node;
 
+        // TODO check if node is not allowed to be broken
         if(target.nodeType === Node.TEXT_NODE) {
           const offset = this.findOverflowOffset(target);
-          
           tmp = target.parentNode;
           tmp.removeChild(target);
           
@@ -259,6 +274,7 @@ class Paginator {
             this.locationOffset = offset;
           } else {
             target = tmp;
+            this.locationOffset = null;
           }
           
         } else {

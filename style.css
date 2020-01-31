@@ -30,3 +30,11 @@ body {
 }
 
 
+#debug {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 1px;
+    bottom: 1px;
+    border: 1px solid red;
+}
