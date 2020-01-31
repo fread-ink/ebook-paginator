@@ -22,5 +22,20 @@ Currently doesn't take into account page resizing, scrolling or font size change
 * Wait for images to load
 * Handle situations where not even a single node could be added to the page before overflow
 * Pre-paginate several pages and keep buffer of past pages, then move between them
-* Check how using a column affects performance
-* Try moving rather than cloning DOM nodes
+* Add deep-clone of non-container nodes
+
+## break-before / break-after
+
+While `break-inside` can be used to avoid page breaks inside an element, `break-before` and `break-after` do nothing in firefox (not even when printing) but when set to 'column' then they do force a break when inside a column, but only on webkit and chrome. This works even when not printing. We could re-write the othersimilar values e.g. 'page', 'left', 'right', 'verso' and 'lefto' to 'column' and that would then work correctly in webkit.
+
+Using `break-before` or `break-after` with the value 'avoid', 'avoid-page', 'avoid-column' or 'avoid-region' does nothing in any of the browsers, not even when printing.
+
+Both of these are annoying to implement manually as they'd require us to backtrack if multiple successive elements have `break-*:avoid`.
+
+Webkit understands that `page-break-before` and `break-before` are aliases, so getting the computed style for `break-before` will work no matter which is set. Weirdly `break-before: column-avoid` isn't understood but setting `-webkit-column-break-before: avoid;` results in the value `avoid` when fetching the computed style for `break-before`.
+
+This is with WebKitGTK+ 2.26.2.
+
+## Different strategy
+
+If a node has `break-inside` set to 'avoid' then when we encounter it while traversing the tree (we have to add it, but just a shallow copy, before we can check) we simply remove it and add a deep copy instead.
