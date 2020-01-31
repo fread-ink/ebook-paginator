@@ -45,7 +45,7 @@ Using `break-before` or `break-after` with the value 'avoid', 'avoid-page', 'avo
 
 Both of these are annoying to implement manually as they'd require us to backtrack if multiple successive elements have `break-*:avoid`.
 
-Webkit understands that `page-break-before` and `break-before` are aliases, so getting the computed style for `break-before` will work no matter which is set. Weirdly `break-before: column-avoid` isn't understood but setting `-webkit-column-break-before: avoid;` results in the value `avoid` when fetching the computed style for `break-before`.
+Webkit understands that `page-break-before:all` and `break-before:page` are aliases, so getting the computed style for `break-before` will work no matter which is set. Weirdly `break-before: column-avoid` isn't understood but setting `-webkit-column-break-before: avoid;` results in the value `avoid` when fetching the computed style for `break-before`.
 
 This is with WebKitGTK+ 2.26.2.
 
