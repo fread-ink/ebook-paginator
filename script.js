@@ -88,9 +88,11 @@ class Paginator {
 
     this.container = document.getElementById(containerID);
     this.page = document.getElementById(pageID);
-    this.pageBottom = this.page.getBoundingClientRect().bottom;
-    console.log("pageBottom:", this.pageBottom);
+    this.pageBottom = this.page.getBoundingClientRect().bottom; // TODO unused?
+    this.pageRight = this.page.getBoundingClientRect().right;
 
+    this.page.style.columnWidth = this.page.offsetWidth + 'px';
+    
     document.body.addEventListener('keypress', this.onKeyPress.bind(this));
 
     this.loadChapter(chapterURI, function(err) {
@@ -112,7 +114,8 @@ class Paginator {
       range.selectNode(node);
       rect = range.getBoundingClientRect();
     }
-    if(rect.bottom > Math.floor(this.pageBottom)) {
+
+    if(Math.floor(rect.right) > Math.floor(this.pageRight)) {
       return true;
     }
     return false
@@ -120,12 +123,12 @@ class Paginator {
 
   // Find the exact offset in a text node just before the overflow occurs.
   findOverflowOffset(node) {
-    
+
     const range = document.createRange();
     range.selectNode(node);
     range.setStart(node, 0);
     
-    const bottom = Math.floor(this.pageBottom);
+    const pageRight = Math.ceil(this.pageRight);
     const len = node.textContent.length;
     var prev = 0; 
     var tooFar = false;
@@ -152,7 +155,7 @@ class Paginator {
       range.setEnd(node, i);
 
       prevTooFar = tooFar;
-      if(range.getBoundingClientRect().bottom >= bottom) {
+      if(range.getBoundingClientRect().right > pageRight) {
         tooFar = true;
       } else {
         tooFar = false;
@@ -172,19 +175,13 @@ class Paginator {
 
         prev = i;
         i += ((tooFar) ? -1 : 1);
-
-        
         continue;
       } 
 
       halfDist = Math.round(dist / 2);
       prev = i;
       i += ((tooFar) ? -halfDist : halfDist);
-      
-
     }
-
-    
   }
   
   paginate(source) {
@@ -249,7 +246,7 @@ class Paginator {
       
       if(this.didOverflow(target)) {
         this.location = node;
-        
+
         if(target.nodeType === Node.TEXT_NODE) {
           const offset = this.findOverflowOffset(target);
           
@@ -288,7 +285,9 @@ class Paginator {
     while(this.paginate()) {
       i++
     }
+    
     console.log("Paginated", i, "pages in", (Date.now() - t) / 1000, "seconds");
+    alert((Date.now() - t) / 1000);
   }
   
   onKeyPress(e) {

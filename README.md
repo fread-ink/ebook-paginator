@@ -1,15 +1,11 @@
 
-An example of how to cleanly break an HTML document into pages without having the last line on each page potentially cut off as usually happens with scrolling.
-
-The pagination is accomplished by walking through the DOM tree and cloning over a single node at a time, then checking if the node caused the page to overflow by comparing the bottom of the `.getBoundingClientRect()` to the bottom of the page area. If the node is a text node then a binary search is performed to find the offset inside the text string where the text should be cut off by moving a Range's ending offset around and checking `.getBoundingClientRect()`.
-
-This is an alternative to the CSS `column` based solution in the main branch of this repo. This solution is much faster in WebKit and can probably be optimized further.
+Variation that sacrifices speed for obeying `break-inside`, `break-before` and break-after`.
 
 Here are the calculation times for a 500 page document for various browsers:
 
-* Chromium 78: 1.10 seconds
-* Firefox 71: 2.26 seconds
-* Epiphany (WebKit2GTK): 2.60 seconds
+* Chromium 78: 1.0 seconds
+* Firefox 71: 2.3 seconds
+* Epiphany (WebKit2GTK): 9.9 seconds
 
 A demo is [hosted here](https://juul.io/paginator-chunk/).
 

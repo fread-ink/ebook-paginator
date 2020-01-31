@@ -15,8 +15,8 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    break-inside: avoid;
 }
+
 
 #page {
     display: block;
@@ -26,6 +26,7 @@ body {
     right: 200px;
     bottom: 50px;
     background-color: #888888;
+
 }
 
 
