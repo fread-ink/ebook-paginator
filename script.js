@@ -1,3 +1,5 @@
+const breakAvoidVals = ['avoid', 'avoid-page'];
+const breakForceVals = ['always', 'all', 'page', 'left', 'right', 'recto', 'verso'];
 
 function parseDOM(str, mimetype) {
 
@@ -89,14 +91,21 @@ function nextNode(node) {
 
 class Paginator {
 
-  constructor(containerID, pageID, chapterURI) {
+  constructor(pageID, chapterURI, opts) {
+    this.opts = opts || {};
+    if(this.opts.columnLayout) {
+      this.columnLayout = true;
+    }
 
-    this.container = document.getElementById(containerID);
     this.page = document.getElementById(pageID);
-    this.pageBottom = this.page.getBoundingClientRect().bottom; // TODO unused?
-    this.pageRight = this.page.getBoundingClientRect().right;
 
-    this.page.style.columnWidth = this.page.offsetWidth + 'px';
+    // Use column-based layout? (slow on WebKit but may be more accurate)
+    if(this.columnLayout) {
+      this.pageRight = this.page.getBoundingClientRect().right;
+      this.page.style.columnWidth = this.page.offsetWidth + 'px';
+    } else {
+      this.pageBottom = this.page.getBoundingClientRect().bottom;
+    }
     
     document.body.addEventListener('keypress', this.onKeyPress.bind(this));
 
@@ -129,8 +138,14 @@ class Paginator {
       rect = range.getBoundingClientRect();
     }
 
-    if(Math.floor(rect.right) > Math.floor(this.pageRight)) {
-      return true;
+    if(this.columnLayout) {
+      if(Math.floor(rect.right) > Math.floor(this.pageRight)) {
+        return true;
+      }
+    } else {
+      if(Math.floor(rect.bottom) > Math.floor(this.pageBottom)) {
+        return true;
+      }
     }
     return false
   }
@@ -141,8 +156,12 @@ class Paginator {
     const range = document.createRange();
     range.selectNode(node);
     range.setStart(node, 0);
-    
-    const pageRight = Math.ceil(this.pageRight);
+
+    if(this.columnLayout) {
+      var pageRight = Math.ceil(this.pageRight);
+    } else {
+      var pageBottom = Math.floor(this.pageBottom);
+    }
     const len = node.textContent.length;
     var prev = 0; 
     var tooFar = false;
@@ -169,11 +188,20 @@ class Paginator {
       range.setEnd(node, i);
 
       prevTooFar = tooFar;
-      if(range.getBoundingClientRect().right > pageRight) {
-        tooFar = true;
+      if(this.columnLayout) {
+        if(range.getBoundingClientRect().right > pageRight) {
+          tooFar = true;
+        } else {
+          tooFar = false;
+        }
       } else {
-        tooFar = false;
+        if(range.getBoundingClientRect().bottom > pageBottom) {
+          tooFar = true;
+        } else {
+          tooFar = false;
+        }
       }
+        
 //      console.log("i", i, "tooFar", tooFar);
 
       dist = Math.abs(prev - i);
@@ -197,12 +225,37 @@ class Paginator {
       i += ((tooFar) ? -halfDist : halfDist);
     }
   }
+
+  shouldBreak(node) {
+    if(node.nodeType !== Node.ELEMENT_NODE) return;
+    
+    var val;      
+    const styles = window.getComputedStyle(node);
+    
+    val = styles.getPropertyValue('break-inside');
+    if(breakAvoidVals.indexOf(val) >= 0) {
+      return 'avoid-inside';
+    }
+
+    val = styles.getPropertyValue('break-before');
+    if(breakForceVals.indexOf(val) >= 0) {
+      return 'before';
+    }
+
+    val = styles.getPropertyValue('break-after');
+    if(breakForceVals.indexOf(val) >= 0) {
+      return 'after';
+    }
+    
+    return null;
+  }
   
   paginate(source) {
+    var tmp, i, shouldBreak, toRemoveNode;
     var target = this.page;
     var node = source;
-    var tmp;
-    var i;
+    var breakAtDepth = 0;
+    var depth = 1; // current depth in DOM hierarchy
 
     if(this.location) {
       this.page.innerHTML = '';
@@ -230,9 +283,10 @@ class Paginator {
       // Get next node in document order recursively
       // and shallow copy the node to the corresponding
       // spot in the target location (inside this.page)
-      
-	    if(node.childNodes.length) {
+
+      if(node.childNodes.length) {
         node = node.firstChild;
+        depth++;
 		    tmp = node.cloneNode(); // shallow copy
         target.appendChild(tmp);
         target = tmp;
@@ -248,7 +302,8 @@ class Paginator {
 		    while(node) {          
 			    node = node.parentNode;
           target = target.parentNode;
-          
+          depth--;
+
 			    if(node && node.nextSibling) {
             node = node.nextSibling;
 		        tmp = node.cloneNode();
@@ -259,9 +314,32 @@ class Paginator {
 		    }
 	    }
 
+      
+      // We found a node that doesn't want us to break inside.
+      // Save the current location and depth so we can break before
+      // this node if any of its children end up causing an overflow
+      shouldBreak = this.shouldBreak(target);
+      if(shouldBreak === 'avoid-inside') {
+        this.location = node;
+        toRemoveNode = target;
+        breakAtDepth = depth;
+        // We must have passed the "break-inside:nope" node without overflowing
+      } else if(depth <= breakAtDepth && node !== this.location) {
+        breakAtDepth = 0;
+        toRemoveNode = null;
+      }
+      
       if(this.didOverflow(target)) {
         this.location = node;
 
+        // If we're at or inside the element that doesn't want us to break inside
+        if(breakAtDepth && depth >= breakAtDepth) {
+          target = toRemoveNode.parentNode;
+          toRemoveNode.parentNode.removeChild(toRemoveNode);
+          node = this.location;
+          return true;
+        }
+        
         // TODO check if node is not allowed to be broken
         if(target.nodeType === Node.TEXT_NODE) {
           const offset = this.findOverflowOffset(target);
@@ -278,6 +356,7 @@ class Paginator {
           }
           
         } else {
+
           tmp = target.parentNode;
           tmp.removeChild(target);
           target = tmp;
@@ -353,11 +432,12 @@ class Paginator {
 
 function init() {
 
-  const containerID = 'container';
   const pageID = 'page';
   const chapterURI = 'moby_dick_chapter.html';
   
-  const paginator = new Paginator(containerID, pageID, chapterURI);
+  const paginator = new Paginator(pageID, chapterURI, {
+    columnLayout: false
+  });
 }
 
 init();
