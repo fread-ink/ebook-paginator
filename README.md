@@ -52,9 +52,9 @@ This is with WebKitGTK+ 2.26.2.
 # ToDo
 
 * Get rid of this.location and this.locationOffset
-* Take into account element bottom padding and margin
 * Wait for images to load
 * Handle situations where not even a single node could be added to the page before overflow
 * Pre-paginate several pages and keep buffer of past pages, then move between them
 * Add support for at least the 'truthy' values for `break-after`
 * Handle right-to-left pages
+* Don't assume XHTML in parser

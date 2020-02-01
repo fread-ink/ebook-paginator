@@ -119,23 +119,45 @@ class Paginator {
     }.bind(this));
   }
 
+  // Traverse node's ancestor's until an element is found
+  getFirstElementAncestor(node) {
+    while(node.nodeType !== Node.ELEMENT_NODE) {
+      node = node.parentNode;
+      if(node.tagName === 'body') return null;
+    }
+    return node;
+  }
+
+  // Get combined bottom-padding and bottom-spacing of element
+  getBottomSpacing(el) {
+    if(!el) return 0;
+    const style = window.getComputedStyle(el);
+    return (parseFloat(style.getPropertyValue('padding-bottom')) || 0) + (parseFloat(style.getPropertyValue('margin-bottom')) || 0);
+  }
+  
   // Does the node overflow the bottom of the page
   didOverflow(node) {
+    var el;
     var rect;
+    var bottom;
     if(node.getBoundingClientRect) {
       rect = node.getBoundingClientRect();
+      el = node;
     } else { // handle text nodes
       const range = document.createRange();
       range.selectNode(node);
       rect = range.getBoundingClientRect();
+      el = this.getFirstElementAncestor(node);
     }
 
     if(this.columnLayout) {
-      if(Math.floor(rect.right) > Math.floor(this.pageRight)) {
+      if(Math.round(rect.right) > Math.floor(this.pageRight)) {
         return true;
       }
     } else {
-      if(Math.floor(rect.bottom) > Math.floor(this.pageBottom)) {
+      bottom = Math.round(rect.bottom + this.getBottomSpacing(el));
+
+      if(bottom > Math.floor(this.pageBottom)) {
         return true;
       }
     }
@@ -149,6 +171,8 @@ class Paginator {
     range.selectNode(node);
     range.setStart(node, 0);
 
+    const el = this.getFirstElementAncestor(node);
+
     if(this.columnLayout) {
       var pageRight = Math.ceil(this.pageRight);
     } else {
@@ -158,14 +182,10 @@ class Paginator {
     var prev = 0; 
     var tooFar = false;
     var prevTooFar;
-    var dist, halfDist;
+    var dist, halfDist, bottom;
 
     if(len === 0) return 0;
     if(len === 1) return 1;
-
-    // TODO handle length === 0 and length === 1
-    
-//    console.log('len:', len);
 
     var i = Math.round((len-1) / 2);
     if(len === 2) {
@@ -187,15 +207,14 @@ class Paginator {
           tooFar = false;
         }
       } else {
-        if(range.getBoundingClientRect().bottom > pageBottom) {
+        bottom = Math.round(range.getBoundingClientRect().bottom + this.getBottomSpacing(el));
+        if(bottom > pageBottom) {
           tooFar = true;
         } else {
           tooFar = false;
         }
       }
         
-//      console.log("i", i, "tooFar", tooFar);
-
       dist = Math.abs(prev - i);
 
       if(dist < 3) {
@@ -204,7 +223,7 @@ class Paginator {
           if(!tooFar && prevTooFar) return i;
         }
         if(dist === 0) {
-          return -1; // should never happen
+          return -1;
         }
 
         prev = i;
@@ -469,7 +488,6 @@ class Paginator {
         // TODO don't assume XHTML
         this.doc = parseXHTML(str);
 
-//        this.walker = this.doc.createTreeWalker(this.doc.body, NodeFilter.SHOW_ELEMENT);
         cb();
 
       } catch(err) {
