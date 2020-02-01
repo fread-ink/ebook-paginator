@@ -312,6 +312,8 @@ class Paginator {
     var target = this.page;
     var breakAtDepth = 0;
     var depth = 1; // current depth in DOM hierarchy
+    var nodesAdded = 0;
+    var breakBefore;
 
     this.page.innerHTML = '';
     
@@ -347,6 +349,7 @@ class Paginator {
     }
 
     while(node) {
+      
       // Get next node in document order recursively
       // and shallow copy the node to the corresponding
       // spot in the target location (inside this.page)
@@ -400,8 +403,22 @@ class Paginator {
         breakAtDepth = 0;
         toRemoveNode = null;
       }
+
+      // If the current node wants us to break before itself
+      // and nodes have already been added to the page
+      // then we want to force a break.
+      if(shouldBreak === 'before' && nodesAdded) {
+        breakBefore = true;
+      } else {
+        breakBefore = false;
+      }
+
+      // Count all nodes except pure whitespace text nodes
+      if(!(target.nodeType === Node.TEXT_NODE && !target.textContent.trim().length)) {
+        nodesAdded++;
+      }
       
-      if(this.didOverflow(target) || shouldBreak === 'before') {
+      if(this.didOverflow(target) || breakBefore) {
         this.location = node;
 
         // If we're at or inside the element that doesn't want us to break inside
@@ -411,7 +428,7 @@ class Paginator {
           return true;
         }
         
-        if(target.nodeType === Node.TEXT_NODE && shouldBreak !== 'before') {
+        if(target.nodeType === Node.TEXT_NODE && !breakBefore) {
           const offset = this.findOverflowOffset(target);
           tmp = target.parentNode;
           tmp.removeChild(target);
