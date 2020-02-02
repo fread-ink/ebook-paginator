@@ -1,6 +1,15 @@
 const breakAvoidVals = ['avoid', 'avoid-page'];
 const breakForceVals = ['always', 'all', 'page', 'left', 'right', 'recto', 'verso'];
 
+// async version of setTimeout(arg, 0);
+async function nextTick(func) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      func().then(resolve)
+    }, 0);
+  });
+}
+
 async function waitForImage(img) {
   if(img.complete) return true;
   const ret = new Promise(function(cb) {
@@ -9,7 +18,7 @@ async function waitForImage(img) {
   });  
 }
 
-function waitForImages(imgs) {
+async function waitForImages(imgs) {
   for(let img of imgs) {
     await waitForImage(img);
   }
@@ -157,9 +166,9 @@ class Paginator {
     if(node.getBoundingClientRect) {
       
       // If it's an image, wait for it to load
-      if(node.tagName === 'img') {
-        await waitForImage(node);
-      }
+//      if(node.tagName === 'img') {
+//        await waitForImage(node);
+//      }
       
       rect = node.getBoundingClientRect();
       el = node;
@@ -333,7 +342,7 @@ class Paginator {
     return false;
   }
   
-  firstPage() {
+  async firstPage() {
 
     this.pages[0] = {
       node: this.doc.body,
@@ -341,21 +350,22 @@ class Paginator {
     };
     this.curPage = 0;
     
-    const nextPageStartRef = this.paginate(this.doc.body);
-    if(!nextPageStartRef.node) return false; // no more pages
+    const nextPageStartRef = await this.paginate(this.doc.body, 0);
+    if(!nextPageStartRef.node) return false;
 
     this.pages[this.curPage+1] = nextPageStartRef;
     return true;
   }
   
-  nextPage() {
+  async nextPage(cb) {
+    
     this.curPage++;
 
     const curPageStartRef = this.pages[this.curPage];
     if(!curPageStartRef || !curPageStartRef.node) return false; // no more pages
 
     
-    const nextPageStartRef = this.paginate(curPageStartRef.node, curPageStartRef.offset)
+    const nextPageStartRef = await this.paginate(curPageStartRef.node, curPageStartRef.offset)
     if(!nextPageStartRef.node) return false; // no more pages
 
 
@@ -383,7 +393,7 @@ class Paginator {
   // Render the next page's content into the this.page element
   // and return a reference to the beginning of the next page
   // of the form: {node: <start_node>, offset: <optional_integer_offset_into_node>}
-  paginate(node, offset) {
+  async paginate(node, offset) {
     var tmp, i, shouldBreak, toRemoveNode, forceBreak, breakBefore
     var avoidInsideNode;
     var target = this.page;
@@ -420,7 +430,7 @@ class Paginator {
       target = tmp;
     }
 
-    while(node) {
+    const appendNode = async (cb) => {
       
       // Get the next node in the source document in order recursively
       // and shallow copy the node to the corresponding spot in
@@ -525,17 +535,24 @@ class Paginator {
 
         return {node, offset};
       }
-      
+
+      // TODO run this e.g. every 200 ms
+      // so the browser tab doesn't feel unresponsive to the user
+      //return await nextTick(appendNode);
+     
+      return await appendNode();      
     }
-    return {node: null};
+
+    return await appendNode();
   }
 
-  speedTest() {
+  async speedTest() {
     const t = Date.now();
     console.log("Starting speed test");
 
     var i = 0;
-    while(this.paginate()) {
+    while(await this.nextPage()) {
+//      console.log("Page:", i);
       i++
     }
     
@@ -543,7 +560,7 @@ class Paginator {
     alert((Date.now() - t) / 1000);
   }
   
-  onKeyPress(e) {
+  async onKeyPress(e) {
     
     switch(e.charCode) {
       
