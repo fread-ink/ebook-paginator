@@ -67,7 +67,8 @@ This is with WebKitGTK+ 2.26.2.
 
 # ToDo
 
-* Wait for images to load
+* Finish converting prevPage and gotoPage to async
+* Allow user navigation while waiting for image load / paginatiing
 * Handle situations where not even a single node could be added to the page before overflow
 * Don't assume XHTML in parser
 * Render into <body> in an iframe (create iframe from js)

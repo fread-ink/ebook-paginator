@@ -12,7 +12,7 @@ async function nextTick(func) {
 
 async function waitForImage(img) {
   if(img.complete) return true;
-  const ret = new Promise(function(cb) {
+  return new Promise(function(cb) {
 		img.onload = cb;
     img.onerror = cb;
   });  
@@ -22,6 +22,11 @@ async function waitForImages(imgs) {
   for(let img of imgs) {
     await waitForImage(img);
   }
+}
+
+function toLower(str) {
+  if(!str) return str;
+  return str.toLowerCase();
 }
 
 function parseDOM(str, mimetype) {
@@ -75,7 +80,7 @@ function cloneAncestors(node) {
   var ret, tmp;
   var innerMost;
   
-  while(node.parentNode && node.parentNode.tagName !== 'body') {
+  while(node.parentNode && toLower(node.parentNode.tagName) !== 'body') {
     tmp = node.parentNode.cloneNode() // shallow clone
     if(!innerMost) innerMost = tmp;
     if(ret) {
@@ -145,7 +150,7 @@ class Paginator {
   getFirstElementAncestor(node) {
     while(node.nodeType !== Node.ELEMENT_NODE) {
       node = node.parentNode;
-      if(node.tagName === 'body') return null;
+      if(toLower(node.tagName) === 'body') return null;
     }
     return node;
   }
@@ -158,17 +163,17 @@ class Paginator {
   }
   
   // Does the node overflow the bottom of the page
-  didOverflow(node) {
+  async didOverflow(node) {
     var el;
     var rect;
     var bottom;
 
     if(node.getBoundingClientRect) {
-      
+
       // If it's an image, wait for it to load
-//      if(node.tagName === 'img') {
-//        await waitForImage(node);
-//      }
+      if(toLower(node.tagName) === 'img') {
+        await waitForImage(node);
+      }
       
       rect = node.getBoundingClientRect();
       el = node;
@@ -407,7 +412,7 @@ class Paginator {
     if(!node) return {node: null};
 
     // if we're not on the first node in the source document
-    if(node.tagName !== 'body') {
+    if(toLower(node.tagName) !== 'body') {
 
       // Re-construct the ancestor structure
       // from the current point within the source document
@@ -452,7 +457,7 @@ class Paginator {
 	    } else {
 
         // Don't proceed past body element in source document
-        if(node.tagName === 'body') return false;
+        if(toLower(node.tagName) === 'body') return false;
         
 		    while(node) {
 			    node = node.parentNode;
@@ -501,7 +506,7 @@ class Paginator {
       }
 
       // If adding the most recent node caused the page element to overflow
-      if(this.didOverflow(target) || breakBefore) {
+      if(await this.didOverflow(target) || breakBefore) {
 
         // If we're at or inside a node that doesn't want us to break inside
         if(breakAtDepth && depth >= breakAtDepth) {
