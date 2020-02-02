@@ -72,6 +72,7 @@ This is with WebKitGTK+ 2.26.2.
 * Copy CSS into iframe document and wait for it to load
 * Handle right-to-left pages
 * Quietly paginate several pages ahead in the background
+* Add option to inject CSS (by URI)
 * Add pageCount function
 * Add option to auto-recalc on browser resize or font size changes
 
