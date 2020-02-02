@@ -67,14 +67,12 @@ This is with WebKitGTK+ 2.26.2.
 
 # ToDo
 
-* Finish converting prevPage and gotoPage to async
-* Allow user navigation while waiting for image load / paginatiing
 * Handle situations where not even a single node could be added to the page before overflow
 * Don't assume XHTML in parser
 * Render into <body> in an iframe (create iframe from js)
 * Copy CSS into iframe document and wait for it to load
 * Handle right-to-left pages
-* Pre-paginate several pages and keep buffer of past pages, then move between them
+* Quietly paginate several pages ahead in the background
 * Add pageCount function
 * Add option to auto-recalc on browser resize or font size changes
 

@@ -18,12 +18,6 @@ async function waitForImage(img) {
   });  
 }
 
-async function waitForImages(imgs) {
-  for(let img of imgs) {
-    await waitForImage(img);
-  }
-}
-
 function toLower(str) {
   if(!str) return str;
   return str.toLowerCase();
@@ -295,13 +289,13 @@ class Paginator {
     return null;
   }
 
-  gotoKnownPage(pageNumber) {
+  async gotoKnownPage(pageNumber) {
     
     // Do we know the starting node+offset of the page?
     var pageRef = this.pages[pageNumber];
     if(!pageRef) return false;
     
-    const nextPageRef = this.paginate(pageRef.node, pageRef.offset);
+    const nextPageRef = await this.paginate(pageRef.node, pageRef.offset);
     if(!this.pages[pageNumber + 1]) {
       this.pages[pageNumber+1] = nextPageRef;
     }
@@ -310,7 +304,7 @@ class Paginator {
     return true;
   }
 
-  gotoPage(pageNumber) {
+  async gotoPage(pageNumber) {
     var nextPageRef;
 
     if(this.gotoKnownPage(pageNumber)) {
@@ -330,14 +324,14 @@ class Paginator {
     if(!startPage) return false;
     startPage--;
 
-    if(!this.gotoKnownPage(startPage)) {
+    if(!await this.gotoKnownPage(startPage)) {
       return false;
     }
     
     // Paginate forward until we reach the desired page
     var curPage;
     do {
-      curPage = this.nextPage();
+      curPage = await this.nextPage();
     } while(curPage && curPage < pageNumber);
 
     if(curPage === pageNumber) {
@@ -356,14 +350,13 @@ class Paginator {
     this.curPage = 0;
     
     const nextPageStartRef = await this.paginate(this.doc.body, 0);
-    if(!nextPageStartRef.node) return false;
+    if(!nextPageStartRef || !nextPageStartRef.node) return false;
 
     this.pages[this.curPage+1] = nextPageStartRef;
     return true;
   }
   
   async nextPage(cb) {
-    
     this.curPage++;
 
     const curPageStartRef = this.pages[this.curPage];
@@ -371,16 +364,15 @@ class Paginator {
 
     
     const nextPageStartRef = await this.paginate(curPageStartRef.node, curPageStartRef.offset)
-    if(!nextPageStartRef.node) return false; // no more pages
-
+    if(!nextPageStartRef || !nextPageStartRef.node) return false; // no more pages
 
     this.pages[this.curPage+1] = nextPageStartRef;
-
     return this.curPage;
   }
 
-  prevPage() {
+  async prevPage() {
     this.curPage--;
+    
     if(this.curPage < 0) {
       this.curPage = 0;
       return 0;
@@ -390,8 +382,9 @@ class Paginator {
     // TODO implement
     if(!page) throw new Error("Unknown starting point for page");
     
-    const prevPageRef = this.paginate(page.node, page.offset);
-    if(!prevPageRef.node) return false;
+    const prevPageRef = await this.paginate(page.node, page.offset);
+    
+    if(!prevPageRef || !prevPageRef.node) return false;
     return this.curPage;
   }
 
@@ -399,8 +392,9 @@ class Paginator {
   // and return a reference to the beginning of the next page
   // of the form: {node: <start_node>, offset: <optional_integer_offset_into_node>}
   async paginate(node, offset) {
-    var tmp, i, shouldBreak, toRemoveNode, forceBreak, breakBefore
-    var avoidInsideNode;
+    var tmp, i, shouldBreak, toRemoveNode;
+    var forceBreak, breakBefore, avoidInsideNode;
+    const curPage = this.curPage;
     var target = this.page;
     var breakAtDepth = 0;
     var depth = 1; // current depth in DOM hierarchy
@@ -436,6 +430,11 @@ class Paginator {
     }
 
     const appendNode = async (cb) => {
+      // If the page number changes while we are paginating
+      // then stop paginating immediately
+      if(curPage !== this.curPage) {
+        return null;
+      }
       
       // Get the next node in the source document in order recursively
       // and shallow copy the node to the corresponding spot in
@@ -505,8 +504,15 @@ class Paginator {
         nodesAdded++;
       }
 
+      const didOverflow = await this.didOverflow(target);
+      // If the page number changes while we are paginating
+      // then stop paginating immediately
+      if(curPage !== this.curPage) {
+        return null;
+      }
+      
       // If adding the most recent node caused the page element to overflow
-      if(await this.didOverflow(target) || breakBefore) {
+      if(didOverflow || breakBefore) {
 
         // If we're at or inside a node that doesn't want us to break inside
         if(breakAtDepth && depth >= breakAtDepth) {
@@ -557,7 +563,6 @@ class Paginator {
 
     var i = 0;
     while(await this.nextPage()) {
-//      console.log("Page:", i);
       i++
     }
     
@@ -566,7 +571,7 @@ class Paginator {
   }
   
   async onKeyPress(e) {
-    
+
     switch(e.charCode) {
       
     case 32: // space
@@ -575,7 +580,7 @@ class Paginator {
     case 116: // t
       this.speedTest();
       break;
-    case 115: // s
+    case 103: // g
       this.gotoPage(50);
       break;
     case 113: // q
