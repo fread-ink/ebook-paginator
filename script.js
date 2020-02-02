@@ -269,26 +269,25 @@ class Paginator {
     };
     this.curPage = 0;
     
-    const hasAnotherPage = this.paginate(this.doc.body)
-    if(!hasAnotherPage) return false;
+    const nextPageStartRef = this.paginate(this.doc.body);
+    if(!nextPageStartRef.node) return false; // no more pages
 
-    this.pages[this.curPage+1] = {
-      node: this.location,
-      offset: this.locationOffset
-    }
+    this.pages[this.curPage+1] = nextPageStartRef;
     return true;
   }
   
   nextPage() {
-    
-    const hasAnotherPage = this.paginate()
-    if(!hasAnotherPage) return false;
-
     this.curPage++;
-    this.pages[this.curPage+1] = {
-      node: this.location,
-      offset: this.locationOffset
-    }
+
+    const curPageStartRef = this.pages[this.curPage];
+    if(!curPageStartRef || !curPageStartRef.node) return false; // no more pages
+
+    
+    const nextPageStartRef = this.paginate(curPageStartRef.node, curPageStartRef.offset)
+    if(!nextPageStartRef.node) return false; // no more pages
+
+
+    this.pages[this.curPage+1] = nextPageStartRef;
 
     return true;
   }
@@ -308,21 +307,23 @@ class Paginator {
   }
 
   paginate(fromNode, offset) {
-    var tmp, i, shouldBreak, toRemoveNode, node, forceBreak;
+    var tmp, i, shouldBreak, toRemoveNode, node, forceBreak, breakBefore
+    var avoidInsideNode;
     var target = this.page;
     var breakAtDepth = 0;
     var depth = 1; // current depth in DOM hierarchy
     var nodesAdded = 0;
-    var breakBefore;
 
     this.page.innerHTML = '';
     
     if(fromNode) {
-      this.location = fromNode;
-      this.locationOffset = offset;
+//      this.location = fromNode;
+//      this.locationOffset = offset;
+      node = fromNode;
     }
+    if(!offset) offset = 0;
     
-    node = this.location;
+//    node = this.location;
     if(!node) return false;
 
     // if we're not on the first node in the source document
@@ -339,8 +340,8 @@ class Paginator {
 
       // If the last page ended in the middle of a text node
       // create a new text node with the remaining content
-      if(this.locationOffset) {
-        tmp = document.createTextNode(node.textContent.slice(this.locationOffset));
+      if(offset) {
+        tmp = document.createTextNode(node.textContent.slice(offset));
       } else {
         tmp = node.cloneNode();
       }
@@ -394,12 +395,12 @@ class Paginator {
       // this node if any of its children end up causing an overflow
       shouldBreak = this.shouldBreak(target);
       if(shouldBreak === 'avoid-inside') {
-        this.location = node;
+        avoidInsideNode = node;
         toRemoveNode = target;
         breakAtDepth = depth;
 
         // We must have passed the "break-inside:nope" node without overflowing
-      } else if(depth <= breakAtDepth && node !== this.location) {
+      } else if(depth <= breakAtDepth && node !== avoidInsideNode) {
         breakAtDepth = 0;
         toRemoveNode = null;
       }
@@ -417,29 +418,30 @@ class Paginator {
       if(!(target.nodeType === Node.TEXT_NODE && !target.textContent.trim().length)) {
         nodesAdded++;
       }
-      
-      if(this.didOverflow(target) || breakBefore) {
-        this.location = node;
 
-        // If we're at or inside the element that doesn't want us to break inside
+      // If adding the most recent node caused the page element to overflow
+      if(this.didOverflow(target) || breakBefore) {
+
+        // If we're at or inside a node that doesn't want us to break inside
         if(breakAtDepth && depth >= breakAtDepth) {
           target = toRemoveNode.parentNode;
           toRemoveNode.parentNode.removeChild(toRemoveNode);
-          return true;
+          return {avoidInsideNode, offset};
         }
         
+        // If this is a text node and we're not supposed to break before
         if(target.nodeType === Node.TEXT_NODE && !breakBefore) {
-          const offset = this.findOverflowOffset(target);
+          // Find the position inside the text node where we should break
+          offset = this.findOverflowOffset(target);
           tmp = target.parentNode;
           tmp.removeChild(target);
           
           if(offset > 0) {
             target = document.createTextNode(node.textContent.slice(0, offset));
             tmp.appendChild(target);
-            this.locationOffset = offset;
           } else {
             target = tmp;
-            this.locationOffset = null;
+            offset = null;
           }
           
         } else {
@@ -447,16 +449,14 @@ class Paginator {
           tmp = target.parentNode;
           tmp.removeChild(target);
           target = tmp;
-          this.locationOffset = null;
+          offset = null;
         }
 
-        return true;
+        return {node, offset};
       }
       
-      this.location = null;
     }
-    this.location = null;
-    return false;
+    return {node: null};
   }
 
   speedTest() {
