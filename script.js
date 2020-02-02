@@ -1,6 +1,7 @@
 const breakAvoidVals = ['avoid', 'avoid-page'];
 const breakForceVals = ['always', 'all', 'page', 'left', 'right', 'recto', 'verso'];
 
+/*
 async function waitForImage(img) {
   if(img.complete) return true;
   const ret = new Promise(function(cb) {
@@ -14,6 +15,7 @@ function waitForImages(imgs) {
     await waitForImage(img);
   }
 }
+*/
 
 function parseDOM(str, mimetype) {
 
@@ -157,9 +159,9 @@ class Paginator {
     if(node.getBoundingClientRect) {
       
       // If it's an image, wait for it to load
-      if(node.tagName === 'img') {
-        await waitForImage(node);
-      }
+//      if(node.tagName === 'img') {
+//        await waitForImage(node);
+//      }
       
       rect = node.getBoundingClientRect();
       el = node;
@@ -534,8 +536,11 @@ class Paginator {
     const t = Date.now();
     console.log("Starting speed test");
 
+    var ref = this.pages[this.curPage];
+    
     var i = 0;
-    while(this.paginate()) {
+    while(ref.node) {
+      ref = this.paginate(ref.node, ref.offset)
       i++
     }
     

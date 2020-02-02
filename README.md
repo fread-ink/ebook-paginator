@@ -9,7 +9,7 @@ Here are the pagination times for a 400 page document for various browsers done 
 
 * Chromium 78: 1.0 seconds
 * Firefox 71: 2.1 seconds
-* Epiphany (WebKit2GTK): 2.5 seconds
+* Epiphany (WebKit2GTK): 3.6 seconds
 
 You need to host the code on a web server since browsers consider two files loaded from the filesystem to be from different domains and thus does not allow accessing the sample ebook chapter html file.
 
