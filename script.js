@@ -392,7 +392,7 @@ class Paginator {
   // and return a reference to the beginning of the next page
   // of the form: {node: <start_node>, offset: <optional_integer_offset_into_node>}
   async paginate(node, offset) {
-    var tmp, i, shouldBreak, toRemoveNode;
+    var tmp, i, shouldBreak, avoidInsideTarget;
     var forceBreak, breakBefore, avoidInsideNode;
     const curPage = this.curPage;
     var target = this.page;
@@ -481,13 +481,13 @@ class Paginator {
       shouldBreak = this.shouldBreak(target);
       if(shouldBreak === 'avoid-inside') {
         avoidInsideNode = node;
-        toRemoveNode = target;
+        avoidInsideTarget = target;
         breakAtDepth = depth;
 
         // We must have passed the "break-inside:nope" node without overflowing
       } else if(depth <= breakAtDepth && node !== avoidInsideNode) {
         breakAtDepth = 0;
-        toRemoveNode = null;
+        avoidInsideTarget = null;
       }
 
       // If the current node wants us to break before itself
@@ -504,20 +504,32 @@ class Paginator {
         nodesAdded++;
       }
 
-      const didOverflow = await this.didOverflow(target);
+      var didOverflow = await this.didOverflow(target);
       // If the page number changes while we are paginating
       // then stop paginating immediately
       if(curPage !== this.curPage) {
         return null;
       }
+
+      // If the first non-text left node added caused an overflow
+      if(didOverflow && nodesAdded <= 1 && target.nodeType !== Node.TEXT_NODE) {
+
+        // Force the node to fit
+        let r = this.page.getBoundingClientRect();
+        target.style.width = 'auto';
+        target.style.maxWidth = r.width + 'px';
+        target.style.maxHeight = r.height + 'px';
+
+        didOverflow = false;
+      }  
       
       // If adding the most recent node caused the page element to overflow
       if(didOverflow || breakBefore) {
 
         // If we're at or inside a node that doesn't want us to break inside
         if(breakAtDepth && depth >= breakAtDepth) {
-          target = toRemoveNode.parentNode;
-          toRemoveNode.parentNode.removeChild(toRemoveNode);
+          target = avoidInsideTarget.parentNode;
+          avoidInsideTarget.parentNode.removeChild(avoidInsideTarget);
           return {avoidInsideNode, offset};
         }
         

@@ -67,7 +67,6 @@ This is with WebKitGTK+ 2.26.2.
 
 # ToDo
 
-* Handle situations where not even a single node could be added to the page before overflow
 * Don't assume XHTML in parser
 * Render into <body> in an iframe (create iframe from js)
 * Copy CSS into iframe document and wait for it to load
