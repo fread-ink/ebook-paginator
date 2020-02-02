@@ -67,13 +67,14 @@ This is with WebKitGTK+ 2.26.2.
 
 # ToDo
 
-* Add pageCount and gotoPage functions
-* Get rid of this.location and this.locationOffset
 * Wait for images to load
 * Handle situations where not even a single node could be added to the page before overflow
-* Pre-paginate several pages and keep buffer of past pages, then move between them
-* Handle right-to-left pages
 * Don't assume XHTML in parser
+* Render into <body> in an iframe (create iframe from js)
+* Copy CSS into iframe document and wait for it to load
+* Handle right-to-left pages
+* Pre-paginate several pages and keep buffer of past pages, then move between them
+* Add pageCount function
 * Add option to auto-recalc on browser resize or font size changes
 
 Nice to have:

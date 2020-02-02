@@ -1,6 +1,20 @@
 const breakAvoidVals = ['avoid', 'avoid-page'];
 const breakForceVals = ['always', 'all', 'page', 'left', 'right', 'recto', 'verso'];
 
+async function waitForImage(img) {
+  if(img.complete) return true;
+  const ret = new Promise(function(cb) {
+		img.onload = cb;
+    img.onerror = cb;
+  });  
+}
+
+function waitForImages(imgs) {
+  for(let img of imgs) {
+    await waitForImage(img);
+  }
+}
+
 function parseDOM(str, mimetype) {
 
   var parser = new DOMParser();
@@ -88,7 +102,6 @@ function nextNode(node) {
 }
 
 
-
 class Paginator {
 
   constructor(pageID, chapterURI, opts) {
@@ -119,7 +132,7 @@ class Paginator {
     }.bind(this));
   }
 
-  // Traverse node's ancestor's until an element is found
+  // Traverse node's ancestors until an element is found
   getFirstElementAncestor(node) {
     while(node.nodeType !== Node.ELEMENT_NODE) {
       node = node.parentNode;
@@ -140,7 +153,14 @@ class Paginator {
     var el;
     var rect;
     var bottom;
+
     if(node.getBoundingClientRect) {
+      
+      // If it's an image, wait for it to load
+      if(node.tagName === 'img') {
+        await waitForImage(node);
+      }
+      
       rect = node.getBoundingClientRect();
       el = node;
     } else { // handle text nodes
@@ -261,6 +281,58 @@ class Paginator {
     return null;
   }
 
+  gotoKnownPage(pageNumber) {
+    
+    // Do we know the starting node+offset of the page?
+    var pageRef = this.pages[pageNumber];
+    if(!pageRef) return false;
+    
+    const nextPageRef = this.paginate(pageRef.node, pageRef.offset);
+    if(!this.pages[pageNumber + 1]) {
+      this.pages[pageNumber+1] = nextPageRef;
+    }
+    this.curPage = pageNumber;
+    
+    return true;
+  }
+
+  gotoPage(pageNumber) {
+    var nextPageRef;
+
+    if(this.gotoKnownPage(pageNumber)) {
+      this.curPage = pageNumber;
+      return true;
+    }
+
+    // Walk backwards until we find a starting node+offset we _do_ have
+    var startPage;
+    var i;
+    for(i = pageNumber-1; i >= 0; i--) {
+      if(this.pages[i]) {
+        startPage = i;
+        break;
+      }
+    }
+    if(!startPage) return false;
+    startPage--;
+
+    if(!this.gotoKnownPage(startPage)) {
+      return false;
+    }
+    
+    // Paginate forward until we reach the desired page
+    var curPage;
+    do {
+      curPage = this.nextPage();
+    } while(curPage && curPage < pageNumber);
+
+    if(curPage === pageNumber) {
+      this.curPage = pageNumber;
+      return true;
+    }
+    return false;
+  }
+  
   firstPage() {
 
     this.pages[0] = {
@@ -289,47 +361,46 @@ class Paginator {
 
     this.pages[this.curPage+1] = nextPageStartRef;
 
-    return true;
+    return this.curPage;
   }
 
   prevPage() {
     this.curPage--;
     if(this.curPage < 0) {
       this.curPage = 0;
-      return false;
+      return 0;
     }
     const page = this.pages[this.curPage];
     
     // TODO implement
     if(!page) throw new Error("Unknown starting point for page");
     
-    return this.paginate(page.node, page.offset);
+    const prevPageRef = this.paginate(page.node, page.offset);
+    if(!prevPageRef.node) return false;
+    return this.curPage;
   }
 
-  paginate(fromNode, offset) {
-    var tmp, i, shouldBreak, toRemoveNode, node, forceBreak, breakBefore
+  // Render the next page's content into the this.page element
+  // and return a reference to the beginning of the next page
+  // of the form: {node: <start_node>, offset: <optional_integer_offset_into_node>}
+  paginate(node, offset) {
+    var tmp, i, shouldBreak, toRemoveNode, forceBreak, breakBefore
     var avoidInsideNode;
     var target = this.page;
     var breakAtDepth = 0;
     var depth = 1; // current depth in DOM hierarchy
     var nodesAdded = 0;
 
-    this.page.innerHTML = '';
-    
-    if(fromNode) {
-//      this.location = fromNode;
-//      this.locationOffset = offset;
-      node = fromNode;
-    }
+    this.page.innerHTML = ''; // clear the page container
     if(!offset) offset = 0;
     
-//    node = this.location;
-    if(!node) return false;
+    if(!node) return {node: null};
 
     // if we're not on the first node in the source document
     if(node.tagName !== 'body') {
 
       // Re-construct the ancestor structure
+      // from the current point within the source document
       // so content in the new page has the same structure
       // as in the source document
       let {tree, innerMost} = cloneAncestors(node);
@@ -351,9 +422,9 @@ class Paginator {
 
     while(node) {
       
-      // Get next node in document order recursively
-      // and shallow copy the node to the corresponding
-      // spot in the target location (inside this.page)
+      // Get the next node in the source document in order recursively
+      // and shallow copy the node to the corresponding spot in
+      // the target location (inside this.page)
 
       if(node.childNodes.length) {
         node = node.firstChild;
@@ -370,7 +441,7 @@ class Paginator {
         
 	    } else {
 
-        // Don't proceed to parent of body element in source document
+        // Don't proceed past body element in source document
         if(node.tagName === 'body') return false;
         
 		    while(node) {
@@ -483,7 +554,7 @@ class Paginator {
       this.speedTest();
       break;
     case 115: // s
-
+      this.gotoPage(50);
       break;
     case 113: // q
 
@@ -525,6 +596,8 @@ function init() {
   const paginator = new Paginator(pageID, chapterURI, {
     columnLayout: false
   });
+
+  window.gotoPage = paginator.gotoPage.bind(paginator);
 }
 
 init();
