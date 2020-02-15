@@ -69,14 +69,72 @@ function request(uri, isBinary, cb) {
   });
 }
 
+// Traverse backwards through siblings and parents
+// until a <thead> or a <tr> containing a <th> is found
+// then return the <thead> or <tr>
+// Returns null if no such element is found
+// or if that element is an ancestor of the starting node
+function findPrevTableHeader(node) {
+
+  var tagName;
+  var isAncestor = true; // is the found header and ancestor of node?
+
+  while(node) {
+    tagName = toLower(node.tagName);
+    if(tagName === 'table' || tagName === 'body') {
+      return null;
+    }
+
+    if(!isAncestor) {
+      if(tagName === 'thead') {
+        return node;
+      } else if(tagName === 'tr') {
+        for(let c of node.childNodes) {
+          if(toLower(c.tagName) === 'th') {
+            return node;
+          }
+        }
+      }
+    }
+    
+    if(node.previousSibling) {
+      // no longer dealing with a direct ancestor
+      if(tagName === 'tr' || tagName === 'thead') {
+        isAncestor = false;
+      }
+      node = node.previousSibling
+    } else {
+      if(tagName === 'tbody') {
+        isAncestor = false;      
+      }
+      node = node.parentNode;
+    }
+  }
+
+}
+
 // Shallow clone the structure of ancestors back up to <body>
-function cloneAncestors(node) {
+// If repeatTableHeader is true then the first <thead>
+// (or <tr> which contains <th>) will be copied as
+// the first child of <table>
+function cloneAncestors(node, repeatTableHeader) {
   var ret, tmp;
   var innerMost;
+  var header;
+  const startNode = node;
   
   while(node.parentNode && toLower(node.parentNode.tagName) !== 'body') {
+  
     tmp = node.parentNode.cloneNode() // shallow clone
     if(!innerMost) innerMost = tmp;
+    
+    if(repeatTableHeader && toLower(node.parentNode.tagName) === 'table') {
+      header = findPrevTableHeader(startNode);
+      if(header) {
+        tmp.appendChild(header);
+      }
+    }
+
     if(ret) {
       tmp.appendChild(ret);
     }
@@ -114,6 +172,8 @@ class Paginator {
 
   constructor(pageID, chapterURI, opts) {
     this.opts = opts || {};
+    this.opts.repeatTableHeader = ((opts.repeatTableHeader === undefined) ? true : opts.repeatTableHeader);
+
     if(this.opts.columnLayout) {
       this.columnLayout = true;
     }
@@ -404,7 +464,7 @@ class Paginator {
     if(!offset) offset = 0;
     
     if(!node) return {node: null};
-
+    
     // if we're not on the first node in the source document
     if(toLower(node.tagName) !== 'body') {
 
@@ -412,7 +472,7 @@ class Paginator {
       // from the current point within the source document
       // so content in the new page has the same structure
       // as in the source document
-      let {tree, innerMost} = cloneAncestors(node);
+      let {tree, innerMost} = cloneAncestors(node, this.opts.repeatTableHeader);
       if(tree) {
         target.appendChild(tree);
         target = innerMost;
@@ -636,7 +696,9 @@ function init() {
     columnLayout: false
   });
 
-  window.gotoPage = paginator.gotoPage.bind(paginator);
+//  window.gotoPage = paginator.gotoPage.bind(paginator);
+
+  window.f = findPrevTableHeader;
 }
 
 init();
