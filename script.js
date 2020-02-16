@@ -325,8 +325,14 @@ class Paginator {
     }
   }
 
+  // Check for CSS break-inside, break-before and break-after
+  // as well as <tr> elements which should always avoid breaks inside
   shouldBreak(node) {
     if(node.nodeType !== Node.ELEMENT_NODE) return;
+
+    if(toLower(node.tagName) === 'tr') {
+      return 'avoid-inside';
+    }
     
     var val;      
     const styles = window.getComputedStyle(node);
@@ -417,13 +423,13 @@ class Paginator {
   }
   
   async nextPage(cb) {
-    this.curPage++;
 
+    this.curPage++;
     const curPageStartRef = this.pages[this.curPage];
     if(!curPageStartRef || !curPageStartRef.node) return false; // no more pages
 
-    
     const nextPageStartRef = await this.paginate(curPageStartRef.node, curPageStartRef.offset)
+    
     if(!nextPageStartRef || !nextPageStartRef.node) return false; // no more pages
 
     this.pages[this.curPage+1] = nextPageStartRef;
@@ -571,7 +577,7 @@ class Paginator {
         return null;
       }
 
-      // If the first non-text left node added caused an overflow
+      // If the first non-text node added caused an overflow
       if(didOverflow && nodesAdded <= 1 && target.nodeType !== Node.TEXT_NODE) {
 
         // Force the node to fit
@@ -590,7 +596,7 @@ class Paginator {
         if(breakAtDepth && depth >= breakAtDepth) {
           target = avoidInsideTarget.parentNode;
           avoidInsideTarget.parentNode.removeChild(avoidInsideTarget);
-          return {avoidInsideNode, offset};
+          return {node: avoidInsideNode, offset};
         }
         
         // If this is a text node and we're not supposed to break before
