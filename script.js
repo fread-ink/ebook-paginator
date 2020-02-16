@@ -301,9 +301,13 @@ class Paginator {
     return null;
   }
   
-  // Find the exact offset in a text node just before the overflow occurs.
+  // Find the exact offset in a text node just before the overflow occurs
+  // by using document.createRange() for a part of the text and adjusting
+  // the part of the text included in the range until the range
+  // doesn't overflow.
+  // Uses binary search to speed up the process.
+  // Returns -1 if offset could not be found.
   findOverflowOffset(node) {
-
     const range = document.createRange();
     range.selectNode(node);
     range.setStart(node, 0);
@@ -324,6 +328,8 @@ class Paginator {
     if(len === 0) return 0;
     if(len === 1) return 1;
 
+    // init binary search
+    // `i` is the index into the text
     var i = Math.round((len-1) / 2);
     if(len === 2) {
       i = 1;
@@ -351,9 +357,11 @@ class Paginator {
           tooFar = false;
         }
       }
-        
+
       dist = Math.abs(prev - i);
 
+      // Switch to incremental search if we moved less than 3 chars
+      // since last loop iteration
       if(dist < 3) {
         if(dist === 1) {
           if(tooFar && !prevTooFar) return prev;
@@ -368,6 +376,7 @@ class Paginator {
         continue;
       } 
 
+      // binary search
       halfDist = Math.round(dist / 2);
       prev = i;
       i += ((tooFar) ? -halfDist : halfDist);
@@ -566,12 +575,27 @@ class Paginator {
       // If the last page ended in the middle of a text node
       // create a new text node with the remaining content
       if(offset) {
+        
         tmp = document.createTextNode(node.textContent.slice(offset));
+        target.appendChild(tmp);
+        if(await this.didOverflow(tmp)) {
+          let newOffset = this.findOverflowOffset(tmp);
+          target.removeChild(tmp);
+          tmp = document.createTextNode(tmp.textContent.slice(0, newOffset));
+          target.appendChild(tmp);
+          offset += newOffset;
+          return {node, offset, nodesTraversed};
+        }
+        
+        offset = 0;
+        target = tmp;
+
       } else {
         tmp = node.cloneNode();
+        target.appendChild(tmp);
+        target = tmp;
       }
-      target.appendChild(tmp);
-      target = tmp;
+
     }
 
     const appendNode = async (cb) => {
@@ -785,6 +809,7 @@ function init() {
 
   const pageID = 'page';
   const chapterURI = 'moby_dick_chapter.html';
+  //const chapterURI = 'vertical.html';
   
   const paginator = new Paginator(pageID, chapterURI, {
     columnLayout: false

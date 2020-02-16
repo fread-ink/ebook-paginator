@@ -81,15 +81,16 @@ When a page break happens inside an element where its width is determined by the
 
 * Render into <body> in an iframe (create iframe from js)
 * Copy CSS into iframe document and wait for it to load
-* Handle right-to-left pages
-* Handle top-to-bottom text flow
-* Quietly paginate several pages ahead in the background
 * Add option to inject CSS (by URI)
-* Add pageCount function
-* Add option to auto-recalc on browser resize or font size changes
+* Handle right-to-left pages
+* Quietly paginate several pages ahead in the background (especially backwards)
+* Unit tests
 
 Nice to have:
 
+* Add pageCount function
+* Add option to auto-recalc on browser resize or font size changes
+* Handle top-to-bottom text flow
 * Add support for at least the 'truthy' values for `break-after`
 
 ## Bookmarks
