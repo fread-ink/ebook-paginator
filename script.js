@@ -163,6 +163,10 @@ function nextNode(node) {
   return null;
 }
 
+// Traverse the DOM in the exact same manner as
+// the paginate() function, counting nodes in the same way
+// until the specified count is reached
+
 
 class Paginator {
 
@@ -174,6 +178,9 @@ class Paginator {
       this.columnLayout = true;
     }
 
+    this.curNodeCount = 0; // see findNodeWithCount()
+    this.curNodeOffset = 0;
+    
     this.curPage = 0;
     this.pages = [];
     this.page = document.getElementById(pageID);
@@ -248,6 +255,52 @@ class Paginator {
     return false
   }
 
+  // Warning: Changing the way this is counted will break existing bookmarks
+  // The paginate() function returns an integer `nodesTraversed`
+  // which is a count of how many nodes were traversed when paginating the page.
+  // The nextPage() and prevPage() functions keep track of how many nodes into
+  // the paginated html we currently are and that information can be
+  // retrieved with .getBookmark()
+  // This function makes it possible to find the node again from its index/count
+  // as reported byt .getBookmark()
+  findNodeWithCount(startNode, nodeCount) {
+    var node = startNode;
+    var count = 0;
+    
+    while(node) {
+      if(count === nodeCount) {
+        return node;
+      }
+      
+      if(node.childNodes.length) {
+
+        node = node.firstChild;
+        
+	    } else if(node.nextSibling) {
+
+        node = node.nextSibling;
+
+	    } else {
+
+        // Don't proceed past body element in source document
+        if(toLower(node.tagName) === 'body') return null;
+        
+		    while(node) {
+			    node = node.parentNode;
+
+			    if(node && node.nextSibling) {
+            node = node.nextSibling;
+            break;
+			    }
+		    }
+	    }
+      if(node) {
+        count++;
+      }
+    }
+    return null;
+  }
+  
   // Find the exact offset in a text node just before the overflow occurs.
   findOverflowOffset(node) {
 
@@ -410,6 +463,8 @@ class Paginator {
       offset: 0
     };
     this.curPage = 0;
+    this.curNodeCount = 0;
+    this.curNodeOffset = 0;
     
     const nextPageStartRef = await this.paginate(this.doc.body, 0);
     if(!nextPageStartRef || !nextPageStartRef.node) return false;
@@ -419,9 +474,9 @@ class Paginator {
   }
   
   async nextPage(cb) {
-
     this.curPage++;
     const curPageStartRef = this.pages[this.curPage];
+
     if(!curPageStartRef || !curPageStartRef.node) return false; // no more pages
 
     const nextPageStartRef = await this.paginate(curPageStartRef.node, curPageStartRef.offset)
@@ -429,12 +484,20 @@ class Paginator {
     if(!nextPageStartRef || !nextPageStartRef.node) return false; // no more pages
 
     this.pages[this.curPage+1] = nextPageStartRef;
+    if(typeof curPageStartRef.offset === 'number') {
+      this.curNodeCount += curPageStartRef.nodesTraversed;
+      this.curNodeOffset = curPageStartRef.offset;
+    } else {
+      this.curNodeCount += curPageStartRef.nodesTraversed;
+      this.curNodeOffset = 0;
+    }
     return this.curPage;
   }
 
   async prevPage() {
+    const nodesToRemove = this.pages[this.curPage].nodesTraversed;
     this.curPage--;
-    
+                
     if(this.curPage < 0) {
       this.curPage = 0;
       return 0;
@@ -447,20 +510,40 @@ class Paginator {
     const prevPageRef = await this.paginate(page.node, page.offset);
     
     if(!prevPageRef || !prevPageRef.node) return false;
+
+    if(this.curPage <= 0) {
+      this.curNodeCount = 0;
+    } else {
+      this.curNodeCount -= nodesToRemove;
+    }
+
     return this.curPage;
   }
 
+  async gotoBookmark(count, offset) {
+    const node = this.findNodeWithCount(this.doc.body, count);
+    if(!node) return;
+
+    this.paginate(node, offset);
+  }
+
+  getBookmark() {
+   
+    return {nodeCount: this.curNodeCount, offset: this.curNodeOffset}
+  }
+  
   // Render the next page's content into the this.page element
   // and return a reference to the beginning of the next page
   // of the form: {node: <start_node>, offset: <optional_integer_offset_into_node>}
   async paginate(node, offset) {
-    var tmp, i, shouldBreak, avoidInsideTarget;
+    var tmp, i, shouldBreak, avoidInsideTarget, avoidInsideTraverseCount;
     var forceBreak, breakBefore, avoidInsideNode;
     const curPage = this.curPage;
     var target = this.page;
     var breakAtDepth = 0;
     var depth = 1; // current depth in DOM hierarchy
     var nodesAdded = 0;
+    var nodesTraversed = 0;
 
     this.page.innerHTML = ''; // clear the page container
     if(!offset) offset = 0;
@@ -536,6 +619,9 @@ class Paginator {
 	    }
 
       if(!node) return false; // no more pages
+
+      // Warning: Changing the way this is counted will break existing bookmarks
+      nodesTraversed++;
       
       // We found a node that doesn't want us to break inside.
       // Save the current location and depth so we can break before
@@ -544,6 +630,7 @@ class Paginator {
       if(shouldBreak === 'avoid-inside') {
         avoidInsideNode = node;
         avoidInsideTarget = target;
+        avoidInsideTraverseCount = nodesTraversed;
         breakAtDepth = depth;
 
         // We must have passed the "break-inside:nope" node without overflowing
@@ -561,10 +648,6 @@ class Paginator {
         breakBefore = false;
       }
 
-      // Count all nodes except pure whitespace text nodes
-      if(!(target.nodeType === Node.TEXT_NODE && !target.textContent.trim().length)) {
-        nodesAdded++;
-      }
 
       var didOverflow = await this.didOverflow(target);
       // If the page number changes while we are paginating
@@ -572,9 +655,9 @@ class Paginator {
       if(curPage !== this.curPage) {
         return null;
       }
-
+      
       // If the first non-text node added caused an overflow
-      if(didOverflow && nodesAdded <= 1 && target.nodeType !== Node.TEXT_NODE) {
+      if(didOverflow && nodesAdded <= 0 && target.nodeType !== Node.TEXT_NODE) {
 
         // Force the node to fit
         let r = this.page.getBoundingClientRect();
@@ -592,7 +675,7 @@ class Paginator {
         if(breakAtDepth && depth >= breakAtDepth) {
           target = avoidInsideTarget.parentNode;
           avoidInsideTarget.parentNode.removeChild(avoidInsideTarget);
-          return {node: avoidInsideNode, offset};
+          return {node: avoidInsideNode, offset: 0, nodesTraversed: avoidInsideTraverseCount};
         }
         
         // If this is a text node and we're not supposed to break before
@@ -618,7 +701,12 @@ class Paginator {
           offset = null;
         }
 
-        return {node, offset};
+        return {node, offset, nodesTraversed};
+      } else {
+        // Count all nodes except pure whitespace text nodes
+        if(!(target.nodeType === Node.TEXT_NODE && !target.textContent.trim().length)) {
+          nodesAdded++;
+        }
       }
 
       // TODO run this e.g. every 200 ms
@@ -655,7 +743,8 @@ class Paginator {
       this.speedTest();
       break;
     case 103: // g
-      this.gotoPage(50);
+      //      this.gotoPage(50);
+      this.gotoBookmark(128, 196);
       break;
     case 113: // q
 
@@ -667,7 +756,10 @@ class Paginator {
     }
   }
 
-
+  getNodeCount() {
+    return this.nodeCount;
+  }
+  
   loadChapter(uri, cb) {
 
     request(uri, false, function(err, str) {
@@ -698,9 +790,6 @@ function init() {
     columnLayout: false
   });
 
-//  window.gotoPage = paginator.gotoPage.bind(paginator);
-
-  window.f = findPrevTableHeader;
 }
 
 init();

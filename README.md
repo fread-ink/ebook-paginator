@@ -79,7 +79,6 @@ When a page break happens inside an element where its width is determined by the
 
 # ToDo
 
-* Add bookmark function
 * Render into <body> in an iframe (create iframe from js)
 * Copy CSS into iframe document and wait for it to load
 * Handle right-to-left pages
