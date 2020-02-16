@@ -131,7 +131,7 @@ function cloneAncestors(node, repeatTableHeader) {
     if(repeatTableHeader && toLower(node.parentNode.tagName) === 'table') {
       header = findPrevTableHeader(startNode);
       if(header) {
-        tmp.appendChild(header);
+        tmp.appendChild(header.cloneNode(true));
       }
     }
 

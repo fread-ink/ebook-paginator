@@ -70,6 +70,7 @@ This is with WebKitGTK+ 2.26.2.
 * Don't assume XHTML in parser
 * Render into <body> in an iframe (create iframe from js)
 * Copy CSS into iframe document and wait for it to load
+* Add bookmark function
 * Handle right-to-left pages
 * Quietly paginate several pages ahead in the background
 * Add option to inject CSS (by URI)
@@ -80,3 +81,8 @@ Nice to have:
 
 * Add support for at least the 'truthy' values for `break-after`
 
+## Bookmarks
+
+Maybe have paginate() return not only the ref to the next node but also the number of nodes it paginated through. Then keep track of the node count for the current page's start node.
+
+Then add a function that does the exact same stepping through nodes as the paginator but only counts nodes until it reaches the specified number.
