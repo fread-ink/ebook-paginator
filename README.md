@@ -65,13 +65,25 @@ Webkit understands that `page-break-before:all` and `break-before:page` are alia
 
 This is with WebKitGTK+ 2.26.2.
 
+# Limitations
+
+If an element has a specified height, e.g. `height: 100px` then a page break will never happen inside of the element.
+
+If the first element on a page is tall enough that it can't fit on the page, and the paginator does not know how to break inside of the element (e.g. an <img> or an element with a specified height), then the element will have its `width` set to 'auto' and its `max-height` set to the height of the page.
+
+When a page break happens inside an element where its width is determined by the contents, then the part of the element before and after the page break could have different widths. This is often noticable for `<table>` elements. The only way around this would be to finish paginating however many pages it takes before reaching the end of the element. Unfortunately the worst case scenario here is that showing a single page requires paginating the entire html file.
+
+# Options
+
+`repeatTableHeader`: If this is true and a page break happens inside a `<table>` element, then the last header row before the page break (if any) will be repeated on the next page. This works for both `<thead>` elements and `<tr>` elements with `<th>` elements inside. If neither `<thead>` nor `<th>` elements are used then the header element cannot be detected. Default value is true.
+
 # ToDo
 
-* Don't assume XHTML in parser
+* Add bookmark function
 * Render into <body> in an iframe (create iframe from js)
 * Copy CSS into iframe document and wait for it to load
-* Add bookmark function
 * Handle right-to-left pages
+* Handle top-to-bottom text flow
 * Quietly paginate several pages ahead in the background
 * Add option to inject CSS (by URI)
 * Add pageCount function

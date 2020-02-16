@@ -45,10 +45,6 @@ function parseHTML(str) {
   return parseDOM(str, 'text/html');
 }
 
-function parseXHTML(str) {
-  return parseDOM(str, 'application/xhtml+xml');
-}
-
 function request(uri, isBinary, cb) {
   var req = new Request(uri);
   fetch(req).then(function(resp) {
@@ -679,7 +675,7 @@ class Paginator {
 
       try {
         // TODO don't assume XHTML
-        this.doc = parseXHTML(str);
+        this.doc = parseHTML(str);
 
         cb();
 
