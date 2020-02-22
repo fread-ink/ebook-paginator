@@ -91,7 +91,6 @@ If we had backwards pagination then it would be trivial to jump to a precise boo
 
 # ToDo
 
-* Render into <body> in an iframe (create iframe from js)
 * Copy CSS into iframe document and wait for it to load
 * Also copy inline styles into iframe document
 * Add option to inject CSS (by URI)

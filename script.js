@@ -1,6 +1,38 @@
 const breakAvoidVals = ['avoid', 'avoid-page'];
 const breakForceVals = ['always', 'all', 'page', 'left', 'right', 'recto', 'verso'];
 
+const iframeHTML = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>iframe paginator test</title>
+    <link rel="stylesheet" href="style.css">
+    <style type="text/css">
+      body {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        margin: 0;
+        padding: 0;
+      }
+      #page {
+        display: block;
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+      <div id="page"></div>
+  </body>
+</html>`;
+
 // async version of setTimeout(arg, 0);
 async function nextTick(func) {
   return new Promise((resolve, reject) => {
@@ -170,7 +202,7 @@ function nextNode(node) {
 
 class Paginator {
 
-  constructor(pageID, chapterURI, opts) {
+  constructor(containerID, chapterURI, opts) {
     this.opts = opts || {};
     this.opts.repeatTableHeader = ((opts.repeatTableHeader === undefined) ? true : opts.repeatTableHeader);
 
@@ -183,7 +215,25 @@ class Paginator {
     
     this.curPage = 0;
     this.pages = [];
-    this.page = document.getElementById(pageID);
+    this.containerElement = document.getElementById(containerID);
+    this.iframeElement = document.createElement('iframe');
+    this.iframeElement.src = "about:blank";
+    this.iframeElement.style.position = 'absolute';
+    this.iframeElement.style.display = 'block';
+    this.iframeElement.style.top = '0';
+    this.iframeElement.style.left = '0';
+    this.iframeElement.style.width = '100%';
+    this.iframeElement.style.height = '100%';
+    this.iframeElement.style.border = 'none';
+    this.containerElement.appendChild(this.iframeElement);
+    this.iDoc = this.iframeElement.contentWindow.document;
+    this.iDoc.open();
+    this.iDoc.write(iframeHTML);
+    this.iDoc.close();
+
+    this.page = this.iDoc.getElementById('page');
+    this.setOverflowBottom();
+    
 
     // Use column-based layout? (slow on WebKit but may be more accurate)
     if(this.columnLayout) {
@@ -203,9 +253,15 @@ class Paginator {
     }.bind(this));
   }
 
-  backwards() {
-
+  // Make page overflow at top
+  setOverflowTop() {
+    this.page.style.top = ''; 
   }
+
+  // Make page overflow at bottom (like a normal page)
+  setOverflowBottom() {
+    this.page.style.top = '0'; 
+  }  
 
   // Traverse node's ancestors until an element is found
   getFirstElementAncestor(node) {
@@ -811,7 +867,7 @@ class Paginator {
 
 function init() {
 
-  const pageID = 'page';
+  const pageID = 'page2';
   const chapterURI = 'moby_dick_chapter.html';
 //  const chapterURI = 'vertical.html';
   
@@ -819,7 +875,8 @@ function init() {
     columnLayout: false
   });
 
-
+  window.setTop = paginator.setOverflowTop.bind(paginator);
+  window.setBottom = paginator.setOverflowBottom.bind(paginator);
 }
 
 init();
