@@ -203,6 +203,10 @@ class Paginator {
     }.bind(this));
   }
 
+  backwards() {
+
+  }
+
   // Traverse node's ancestors until an element is found
   getFirstElementAncestor(node) {
     while(node.nodeType !== Node.ELEMENT_NODE) {
@@ -809,11 +813,12 @@ function init() {
 
   const pageID = 'page';
   const chapterURI = 'moby_dick_chapter.html';
-  //const chapterURI = 'vertical.html';
+//  const chapterURI = 'vertical.html';
   
   const paginator = new Paginator(pageID, chapterURI, {
     columnLayout: false
   });
+
 
 }
 

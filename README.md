@@ -73,6 +73,18 @@ If the first element on a page is tall enough that it can't fit on the page, and
 
 When a page break happens inside an element where its width is determined by the contents, then the part of the element before and after the page break could have different widths. This is often noticable for `<table>` elements. The only way around this would be to finish paginating however many pages it takes before reaching the end of the element. Unfortunately the worst case scenario here is that showing a single page requires paginating the entire html file.
 
+## Backwards pagination
+
+NOTE: This problem can be solved by setting the `left`, `right` and `bottom` positions on the containing element (page), but leaving `top` unset. This will cause the page to overflow at the top.
+
+Unfortunately paginating backwards from an arbitrary starting location is non-trivial. Because elements are added in the opposite order of the page flow, the element causing the overflow will be at the bottom of the page, while the element that is being added (and may need to be split in two) is at the top. If the top element is a text element then the only safe way to precisely figure out where to split the top element would be to iteratively split the top element at different locations, adding it to the DOM, and seeing if that caused the bottom element to overflow. This is probably slow, even if implemented with binary search. Doing this in an imprecise manner would case forwards and backwards pagination to give different results, which would be confusing.
+
+There are two side-effects from not having backwards pagination. First, going to a bookmarked location will only be precise to the page since we can't just start paginating from an arbitrary element but have to start paginating from page 1. If e.g. the font size has been changed since the bookmark was created then the bookmark may no longer be at the start of a page.
+
+Second, in order to paginate backwards the paginator must first paginate forwards to the current location from page 1.
+
+If we had backwards pagination then it would be trivial to jump to a precise bookmark and move forwards or backwards from there.
+
 # Options
 
 `repeatTableHeader`: If this is true and a page break happens inside a `<table>` element, then the last header row before the page break (if any) will be repeated on the next page. This works for both `<thead>` elements and `<tr>` elements with `<th>` elements inside. If neither `<thead>` nor `<th>` elements are used then the header element cannot be detected. Default value is true.
@@ -81,10 +93,15 @@ When a page break happens inside an element where its width is determined by the
 
 * Render into <body> in an iframe (create iframe from js)
 * Copy CSS into iframe document and wait for it to load
+* Also copy inline styles into iframe document
 * Add option to inject CSS (by URI)
-* Handle right-to-left pages
 * Quietly paginate several pages ahead in the background (especially backwards)
 * Unit tests
+
+Bugs:
+
+* Fix doubling of table header if cut-off happens at top of table
+* Trying to paginate to next page during load (waiting for img) stops pagination
 
 Nice to have:
 
