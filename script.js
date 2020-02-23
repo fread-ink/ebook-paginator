@@ -97,6 +97,49 @@ function request(uri, isBinary, cb) {
   });
 }
 
+// Traverse recursively to next node in a DOM tree
+// and shallow-copy it to the equivalent location in the target DOM tree
+// while tracking tree depth
+function appendNextNode(node, target, depth) {
+
+  if(node.childNodes.length) {
+    node = node.firstChild;
+    depth++;
+		tmp = node.cloneNode(); // shallow copy
+    target.appendChild(tmp);
+    target = tmp;
+
+	} else if(node.nextSibling) {
+    node = node.nextSibling;
+		tmp = node.cloneNode();
+    target.parentNode.appendChild(tmp);
+    target = tmp;
+    
+	} else {
+
+    // Don't proceed past body element in source document
+    if(toLower(node.tagName) === 'body') return false;
+    
+		while(node) {
+			node = node.parentNode;
+      target = target.parentNode;
+      depth--;
+
+			if(node && node.nextSibling) {
+        node = node.nextSibling;
+		    tmp = node.cloneNode();
+        target.parentNode.appendChild(tmp);
+        target = tmp;
+        break;
+			}
+		}
+	}
+
+  if(!node) return false; // no more pages
+  
+  return {node, target, depth};
+}
+
 // Traverse backwards through siblings and parents
 // until a <thead> or a <tr> containing a <th> is found
 // then return the <thead> or <tr>
@@ -195,6 +238,22 @@ function nextNode(node) {
   return null;
 }
 
+
+function createIframeContainer() {
+
+  var iframeElement = document.createElement('iframe');
+  iframeElement.src = "about:blank";
+  iframeElement.style.position = 'absolute';
+  iframeElement.style.display = 'block';
+  iframeElement.style.top = '0';
+  iframeElement.style.left = '0';
+  iframeElement.style.width = '100%';
+  iframeElement.style.height = '100%';
+  iframeElement.style.border = 'none';
+
+  return iframeElement;
+}
+
 // Traverse the DOM in the exact same manner as
 // the paginate() function, counting nodes in the same way
 // until the specified count is reached
@@ -206,6 +265,10 @@ class Paginator {
     this.opts = opts || {};
     this.opts.repeatTableHeader = ((opts.repeatTableHeader === undefined) ? true : opts.repeatTableHeader);
 
+    // Does the page currently overflow elements at the top?
+    // If this is false then the page overflows at the bottom
+    this.overflowTop = false; 
+    
     if(this.opts.columnLayout) {
       this.columnLayout = true;
     }
@@ -215,25 +278,21 @@ class Paginator {
     
     this.curPage = 0;
     this.pages = [];
+
+    // Create iframe container element
     this.containerElement = document.getElementById(containerID);
-    this.iframeElement = document.createElement('iframe');
-    this.iframeElement.src = "about:blank";
-    this.iframeElement.style.position = 'absolute';
-    this.iframeElement.style.display = 'block';
-    this.iframeElement.style.top = '0';
-    this.iframeElement.style.left = '0';
-    this.iframeElement.style.width = '100%';
-    this.iframeElement.style.height = '100%';
-    this.iframeElement.style.border = 'none';
+    this.iframeElement = createIframeContainer();
     this.containerElement.appendChild(this.iframeElement);
+
+    // Add HTML to iframe document
     this.iDoc = this.iframeElement.contentWindow.document;
     this.iDoc.open();
     this.iDoc.write(iframeHTML);
     this.iDoc.close();
 
     this.page = this.iDoc.getElementById('page');
-    this.setOverflowBottom();
     
+    this.setOverflowBottom();
 
     // Use column-based layout? (slow on WebKit but may be more accurate)
     if(this.columnLayout) {
@@ -255,11 +314,13 @@ class Paginator {
 
   // Make page overflow at top
   setOverflowTop() {
+    this.overflowTop = true;
     this.page.style.top = ''; 
   }
 
   // Make page overflow at bottom (like a normal page)
   setOverflowBottom() {
+    this.overflowTop = false;
     this.page.style.top = '0'; 
   }  
 
@@ -668,41 +729,7 @@ class Paginator {
       // Get the next node in the source document in order recursively
       // and shallow copy the node to the corresponding spot in
       // the target location (inside this.page)
-
-      if(node.childNodes.length) {
-        node = node.firstChild;
-        depth++;
-		    tmp = node.cloneNode(); // shallow copy
-        target.appendChild(tmp);
-        target = tmp;
-
-	    } else if(node.nextSibling) {
-        node = node.nextSibling;
-		    tmp = node.cloneNode();
-        target.parentNode.appendChild(tmp);
-        target = tmp;
-        
-	    } else {
-
-        // Don't proceed past body element in source document
-        if(toLower(node.tagName) === 'body') return false;
-        
-		    while(node) {
-			    node = node.parentNode;
-          target = target.parentNode;
-          depth--;
-
-			    if(node && node.nextSibling) {
-            node = node.nextSibling;
-		        tmp = node.cloneNode();
-            target.parentNode.appendChild(tmp);
-            target = tmp;
-            break;
-			    }
-		    }
-	    }
-
-      if(!node) return false; // no more pages
+      ({node, target, depth} = appendNextNode(node, target, depth));
 
       // Warning: Changing the way this is counted will break existing bookmarks
       nodesTraversed++;
