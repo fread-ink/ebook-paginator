@@ -1,7 +1,7 @@
 
 Work-in-progress in-browser javascript library that consumes an HTML file and displays it one page at a time. This library focuses on fast performance (especially in WebKit) and low memory consumption (usable on systems with 256 MB ram).
 
-A demo is [hosted here](https://juul.io/paginator-nice/).
+A (probably outdated) demo is [hosted here](https://juul.io/paginator-nice/).
 
 Pressing `space` progresses to the next page or `b` for previous. You can also press `t` to start a synchronous test to calculate the page boundaries. Open the console to see the timing measurement.
 
@@ -33,25 +33,16 @@ Where `pageID` is the `id=` of the element and `contentURI` is the URI of an HTM
 
 `columnLayout`: This feature hasn't been maintained recently and may not work as expected. Setting `opts.columnLayout` to `true` will cause the paginator to use a different method for calculating how much to put on each page. This method is based on setting the `column-width` CSS property. This will use the browser's built-in support for the CSS rules `break-inside`, `break-before` and `break-after` which is probably better than this library's support but will incur a serious performance penalty on WebKit (4-5x slower). See the "Page breaks" section.
 
-# Other content paginators
 
-If you don't need speed or low memory consumption then take a look at:
+# Quirks and limitations
 
-* [Epub.js](https://github.com/futurepress/epub.js) - In-browser e-book reader
-* [Paged.js](https://gitlab.pagedmedia.org/tools/pagedjs) - CSS polyfill for paged (print) media
-* [Vivliostyle](https://github.com/vivliostyle/vivliostyle) - A very feature-complete in-browser e-book reader
+Vertical text layout modes (e.g. `writing-mode: vertical-rl`) are not yet supported. This can break everything even if _any_ amount of vertically laid out text is paginated. Hopefully this will be suported in the future
 
-# Implementation details
+If an element has a specified height, e.g. `height: 100px` then a page break will never happen inside of the element.
 
-There are at least a few good ways to accomplish this type of pagination.
+If the first element on a page is tall enough that it can't fit on the page, and the paginator does not know how to break inside of the element (e.g. an <img> or an element with a specified height), then the element will have its `width` set to 'auto' and its `max-height` set to the height of the page.
 
-One way is to load the HTML in an iframe, put a `column-width` CSS style on the iframe that makes the content reflow into a page the exact width of the desired page, resize the iframe to make it wide enough to fit the entire HTML document and then move the iframe element left one page width at a time to show the next page. This solution has the advantage that it is simple to implement and is in fact used by [Epub.js](https://github.com/futurepress/epub.js) but has the following issues. First, it freezes the browser tab until pagination is done and even on Chrome, which is very fast at column layout, paginating a 1000 page HTML page will take multiple seconds on slower computer. On WebKit column layout is slow, and laying out a 1000 page HTML page can take over a minute! Another issue is that CSS rules relating to column layout inside the HTML may malfunction, e.g. the `break-inside:avoid-column` will act as `break-inside:avoid-page`. A proof of concept example of this type of implementation is in the [iframe-paginator](https://github.com/Juul/iframe-paginator/tree/iframe-paginator) branch of this repo.
-
-Another way is to parse the source HTML with the browser's built-in DOM parser, then walk through the nodes in order, adding them to the desired page one by one, while checking whether the node caused the page to overflow, then backtracking. This is much more complicated from an implementation standpoint and has the disadvantage that it is actually slower in Chrome and Firefox (40% and 30% slower respectively) but it is almost six times faster in WebKit _and_ can be done asynchronously such that it doesn't freeze the browser. In fact,
-
-There are two sub-types of this last method: One where overflow is checked using column-based layout as in the previously described method and one where overflow checked without resorting to column layout. The first sub-type is used by the [Paged.js](https://gitlab.pagedmedia.org/tools/pagedjs) paged media polyfill but this solution again suffers poor performance on WebKit. The second sub-type it employed by this library.
-
-# Page breaks
+When a page break happens inside an element where its width is determined by the contents, then the part of the element before and after the page break could have different widths. This is often noticable for `<table>` elements. The only way around this would be to finish paginating however many pages it takes before reaching the end of the element. Unfortunately the worst case scenario here is that showing a single page requires paginating the entire html file.
 
 ## break-inside
 
@@ -59,25 +50,15 @@ Currently the `break-inside` values of 'avoid' and 'avoid-page' are handled corr
 
 ## break-before / break-after
 
-Currently only `break-before` with a values of 'always', 'all', 'page', 'left', 'right', 'recto' or 'verso' is handled by this library. They are all treated the same since currently only single-page pagination is supported. Not all of these values work in all browsers since they may be rejected by the browser's CSS parser if they are not recognized.
+Currently only `break-inside` with values of `avoid` or `avoid-page` and `break-before` with a values of 'always', 'all', 'page', 'left', 'right', 'recto' or 'verso' is handled by this library. All of the supported values for `break-before` are treated the same since currently only single-page pagination is supported. Not all of these values work in all browsers since they may be rejected by the browser's CSS parser if they are not recognized.
 
-While `break-inside` can be used to avoid page breaks inside an element, `break-before` and `break-after` do nothing in firefox (not even when printing) but when set to 'column' then they do force a break when inside a column, but only on webkit and chrome. This works even when not printing. We could re-write the othersimilar values e.g. 'page', 'left', 'right', 'verso' and 'lefto' to 'column' and that would then work correctly in webkit.
+(True as of Febrary 25th 2020) While `break-inside` can be used to avoid page breaks inside an element, `break-before` and `break-after` do nothing in firefox (not even when printing) but when set to 'column' then they do force a break when inside a column, but only on webkit and chrome. This works even when not printing. We could re-write the other similar values e.g. 'page', 'left', 'right', 'verso' and 'lefto' to 'column' and that would then work correctly in webkit.
 
 Using `break-before` or `break-after` with the value 'avoid', 'avoid-page', 'avoid-column' or 'avoid-region' does nothing in any of the browsers, not even when printing.
 
 Both of these are annoying to implement manually as they'd require us to backtrack if multiple successive elements have `break-*:avoid`.
 
-Webkit understands that `page-break-before:all` and `break-before:page` are aliases, so getting the computed style for `break-before` will work no matter which is set. Weirdly `break-before: column-avoid` isn't understood but setting `-webkit-column-break-before: avoid;` results in the value `avoid` when fetching the computed style for `break-before`.
-
-This is with WebKitGTK+ 2.26.2.
-
-# Limitations
-
-If an element has a specified height, e.g. `height: 100px` then a page break will never happen inside of the element.
-
-If the first element on a page is tall enough that it can't fit on the page, and the paginator does not know how to break inside of the element (e.g. an <img> or an element with a specified height), then the element will have its `width` set to 'auto' and its `max-height` set to the height of the page.
-
-When a page break happens inside an element where its width is determined by the contents, then the part of the element before and after the page break could have different widths. This is often noticable for `<table>` elements. The only way around this would be to finish paginating however many pages it takes before reaching the end of the element. Unfortunately the worst case scenario here is that showing a single page requires paginating the entire html file.
+Webkit understands that `page-break-before:all` and `break-before:page` are aliases, so getting the computed style for `break-before` will work no matter which is set. Weirdly `break-before: column-avoid` isn't understood but setting `-webkit-column-break-before: avoid;` results in the value `avoid` when fetching the computed style for `break-before`. This is with WebKitGTK+ 2.26.2.
 
 ## Backward pagination
 
@@ -88,6 +69,24 @@ Another way to solve this, and the method used by this code, is to implement pag
 If the `cacheForwardPagination` option is true (the default) then a hybrid solution is used where the results of forward pagination are remembered and re-used when backward pagination such that moving back and forth over the same pages won't give different results. However, if no forward pagination has has occurred before backward paginating (or the cache has been invalidated by font or page size changes) then true backward paginating is used.
 
 An odd side-effect of this is that when backward paginating all the way back to the front page without a cache, the first page can render differently from if the user had started reading the book from the first page. In this situation calling `.prevPage` again when already on the first page will re-render the first page as if forward paginating from page 1.
+
+# Implementation details
+
+There are at least a few good ways to accomplish this type of pagination.
+
+One way is to load the HTML in an iframe, put a `column-width` CSS style on the iframe that makes the content reflow into a page the exact width of the desired page, resize the iframe to make it wide enough to fit the entire HTML document and then move the iframe element left one page width at a time to show the next page. This solution has the advantage that it is simple to implement and is in fact used by [Epub.js](https://github.com/futurepress/epub.js) but has the following issues. First, it freezes the browser tab until pagination is done and even on Chrome, which is very fast at column layout, paginating a 1000 page HTML page will take multiple seconds on slower computer. On WebKit column layout is slow, and laying out a 1000 page HTML page can take over a minute! Another issue is that CSS rules relating to column layout inside the HTML may malfunction, e.g. the `break-inside:avoid-column` will act as `break-inside:avoid-page`. A proof of concept example of this type of implementation is in the [iframe-paginator](https://github.com/Juul/iframe-paginator/tree/iframe-paginator) branch of this repo.
+
+Another way is to parse the source HTML with the browser's built-in DOM parser, then walk through the nodes in order, adding them to the desired page one by one, while checking whether the node caused the page to overflow, then backtracking. This is much more complicated from an implementation standpoint and has the disadvantage that it is actually slower in Chrome and Firefox (at least 40% and 30% slower respectively) but it is almost six times faster in WebKit _and_ can be done asynchronously such that it doesn't freeze the browser.
+
+There are two sub-types of this last method: One where overflow is checked using column-based layout as in the previously described method and one where overflow checked without resorting to column layout. The first sub-type is used by the [Paged.js](https://gitlab.pagedmedia.org/tools/pagedjs) paged media polyfill but this solution again suffers poor performance on WebKit. The second sub-type it employed by this library.
+
+# Other content paginators
+
+If you don't need speed or low memory consumption then take a look at:
+
+* [Epub.js](https://github.com/futurepress/epub.js) - In-browser e-book reader
+* [Paged.js](https://gitlab.pagedmedia.org/tools/pagedjs) - CSS polyfill for paged (print) media
+* [Vivliostyle](https://github.com/vivliostyle/vivliostyle) - A very feature-complete in-browser e-book reader
 
 # ToDo
 
@@ -116,8 +115,3 @@ Nice to have:
 * Handle top-to-bottom text flow
 * Add support for at least the 'truthy' values for `break-after`
 
-## Bookmarks
-
-Maybe have paginate() return not only the ref to the next node but also the number of nodes it paginated through. Then keep track of the node count for the current page's start node.
-
-Then add a function that does the exact same stepping through nodes as the paginator but only counts nodes until it reaches the specified number.

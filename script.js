@@ -6,7 +6,6 @@ const iframeHTML = `<!DOCTYPE html>
   <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
     <title>iframe paginator test</title>
-    <link rel="stylesheet" href="style.css">
     <style type="text/css">
       body {
         position: fixed;
@@ -29,7 +28,7 @@ const iframeHTML = `<!DOCTYPE html>
     </style>
   </head>
   <body>
-      <div id="page"></div>
+    <div id="page"></div>
   </body>
 </html>`;
 
