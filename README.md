@@ -68,8 +68,6 @@ Another way to solve this, and the method used by this code, is to implement pag
 
 If the `cacheForwardPagination` option is true (the default) then a hybrid solution is used where the results of forward pagination are remembered and re-used when backward pagination such that moving back and forth over the same pages won't give different results. However, if no forward pagination has has occurred before backward paginating (or the cache has been invalidated by font or page size changes) then true backward paginating is used.
 
-An odd side-effect of this is that when backward paginating all the way back to the front page without a cache, the first page can render differently from if the user had started reading the book from the first page. In this situation calling `.prevPage` again when already on the first page will re-render the first page as if forward paginating from page 1.
-
 # Implementation details
 
 There are at least a few good ways to accomplish this type of pagination.
@@ -93,10 +91,10 @@ If you don't need speed or low memory consumption then take a look at:
 Finish reverse pagination:
 
 * Ensure re-adding last table header works
-* Make sure all CSS break rules are supported (at least same as forward pagination)
 
 Important:
 
+* Implement `.redraw()`
 * Copy CSS into iframe document and wait for it to load
 * Also copy inline styles into iframe document
 * Add option to inject CSS (by URI)
@@ -112,6 +110,6 @@ Nice to have:
 
 * Add pageCount function
 * Add option to auto-recalc on browser resize or font size changes
-* Handle top-to-bottom text flow
+* Handle top-to-bottom text flow and mixed side-to-side/top-to-bottom content
 * Add support for at least the 'truthy' values for `break-after`
 

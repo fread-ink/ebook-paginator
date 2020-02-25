@@ -25,6 +25,9 @@ const iframeHTML = `<!DOCTYPE html>
         margin: 0;
         padding: 0;
       }
+h2 {
+    break-before: page;
+}
     </style>
   </head>
   <body>
@@ -328,7 +331,7 @@ class Paginator {
     this.curNodeOffset = 0;
     
     this.curPage = 0;
-    this.pages = [];
+    this.pages = {};
 
     // Create iframe container element
     this.containerElement = document.getElementById(containerID);
@@ -729,23 +732,28 @@ class Paginator {
     const curPageStartRef = this.pages[this.curPage];
     if(!curPageStartRef || !curPageStartRef.node) return false;
 
-    this.curPage--;
-    if(this.curPage < 0) {
+    // don't paginate back before body
+    if(curPageStartRef.node == this.doc.body) {
       this.curPage = 0;
-      return await this.firstPage();
+      return 0;
     }
-
+    
+    this.curPage--;
     var prevPageStartRef = this.pages[this.curPage];
 
     // If we shouldn't use the cache or don't have a cache entry for this page
     // then paginate backwards
     if(!this.opts.cacheForwardPagination || !prevPageStartRef) {
-      console.log("backwards");
+
       prevPageStartRef = await this.paginateBackwards(curPageStartRef.node, curPageStartRef.offset)
       if(!prevPageStartRef || !prevPageStartRef.node) {
-        return false; // no more pages
+        // no more pages
+        this.curPage = 0;
+        return await this.firstPage();
       }
+      
       this.pages[this.curPage] = prevPageStartRef;
+      
     } else {
       // Paginate using the previously cached page start location
       prevPageStartRef = await this.paginate(prevPageStartRef.node, prevPageStartRef.offset)
@@ -771,7 +779,7 @@ class Paginator {
   // invalidate all but the reference to the start of the current page
   invalidateCache() {
     var cur = this.pages[this.curPage];
-    this.pages = [];
+    this.pages = {};
     this.pages[this.curPage] = cur;
   }  
 
@@ -779,7 +787,13 @@ class Paginator {
     const node = this.findNodeWithCount(this.doc.body, count);
     if(!node) return;
 
-    this.paginate(node, offset);
+    const nextPageRef = await this.paginate(node, offset);
+    this.curPage = 0
+    this.pages[0] = {
+      node: node,
+      offset: offset
+    };
+    this.pages[1] = nextPageRef;
   }
 
   getBookmark() {
@@ -913,9 +927,6 @@ class Paginator {
       }
 
       var didOverflow = await this.didOverflow(target, reverse);
-//      if(didOverflow) {
-//        console.log("DID OVERFLOW:", target);
-//      }
       
       // If the page number changes while we are paginating
       // then stop paginating immediately
@@ -1076,11 +1087,13 @@ function init() {
   const paginator = new Paginator(pageID, chapterURI, {
     columnLayout: false,
     repeatTableHeader: false,
-    cacheForwardPagination: true
+    cacheForwardPagination: false
   });
 
   window.setTop = paginator.setOverflowTop.bind(paginator);
   window.setBottom = paginator.setOverflowBottom.bind(paginator);
+  window.getBookmark = paginator.getBookmark.bind(paginator);
+  window.gotoBookmark = paginator.gotoBookmark.bind(paginator);
 }
 
 init();
