@@ -813,7 +813,6 @@ class Paginator {
     }
     const node = this.findNodeWithCount(this.doc.body, count);
     if(!node) return;
-    console.log("node:", offset, node);
 
     const nextPageRef = await this.paginate(node, offset);
     this.curPage = 0
