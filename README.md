@@ -25,7 +25,13 @@ const paginator = new Paginator(pageID, contentURI, opts);
 
 Where `pageID` is the `id=` of the element and `contentURI` is the URI of an HTML document you want to show, one page at a time, inside your `pageID` element.
 
-Setting `opts.columnLayout` to `true` will cause the paginator to use a different method for calculating how much to put on each page. This method is based on setting the `column-width` CSS property. This will use the browser's built-in support for the CSS rules `break-inside`, `break-before` and `break-after` which is probably better than this library's support but will incur a serious performance penalty on WebKit (4-5x slower). See the "Page breaks" section.
+## opts
+
+`cacheForwardPagination`: If this is true then the point at which page breaks happened during forward pagination is cached and re-used when backward paginating to the same pages. This is nice because backward pagination does not always result in page breaks in the same locations as forward pagination (due to CSS rules like break-before) but it may feel odd to the user if moving forward one page, and then back one page, gives a different result. By enabling caching, the pages will be paginated the same. Note that backwards pagination is never cached/re-used, only forward pagination. This option has no effect if a location was arrived at by means other than forward paginating to the page (e.g. using a bookmark) since then no pagination results have been prevously cached. If this option is false then pagination is always re-calculated. This cache should be invalidated when e.g. font size or page size is changed `.redraw(true)`. Default value is true. 
+
+`repeatTableHeader`: If this is true and a page break happens inside a `<table>` element, then the last header row before the page break (if any) will be repeated on the next page. This works for both `<thead>` elements and `<tr>` elements with `<th>` elements inside. If neither `<thead>` nor `<th>` elements are used then the header element cannot be detected. Default value is true.
+
+`columnLayout`: This feature hasn't been maintained recently and may not work as expected. Setting `opts.columnLayout` to `true` will cause the paginator to use a different method for calculating how much to put on each page. This method is based on setting the `column-width` CSS property. This will use the browser's built-in support for the CSS rules `break-inside`, `break-before` and `break-after` which is probably better than this library's support but will incur a serious performance penalty on WebKit (4-5x slower). See the "Page breaks" section.
 
 # Other content paginators
 
@@ -73,31 +79,22 @@ If the first element on a page is tall enough that it can't fit on the page, and
 
 When a page break happens inside an element where its width is determined by the contents, then the part of the element before and after the page break could have different widths. This is often noticable for `<table>` elements. The only way around this would be to finish paginating however many pages it takes before reaching the end of the element. Unfortunately the worst case scenario here is that showing a single page requires paginating the entire html file.
 
-## Backwards pagination
+## Backward pagination
 
-NOTE: This problem can be solved by setting the `left`, `right` and `bottom` positions on the containing element (page), but leaving `top` unset. This will cause the page to overflow at the top.
+The simple way to implement backward pagination is to simply cache where the page boundaries occurred during forward pagination and re-use those locations when backward paginating. The problem occurs when the user arrives at a page without forward paginating to that page. This can occur by clicking a link or bookmark. Another issue pops up if the font size or page size is changed, which would invalidate the cache. One way to solve this would be to forward paginate from page 1 to the current location in the background to re-build the cache. This would be problematic, both for perfomance reasons, but also because there is no guarantee that a page boundary matches up with the location of the link or bookmark. It would be odd if going to a bookmarked location takes you to a page where the bookmarked location is right at the bottom of the page.
 
-Unfortunately paginating backwards from an arbitrary starting location is non-trivial. Because elements are added in the opposite order of the page flow, the element causing the overflow will be at the bottom of the page, while the element that is being added (and may need to be split in two) is at the top. If the top element is a text element then the only safe way to precisely figure out where to split the top element would be to iteratively split the top element at different locations, adding it to the DOM, and seeing if that caused the bottom element to overflow. This is probably slow, even if implemented with binary search. Doing this in an imprecise manner would case forwards and backwards pagination to give different results, which would be confusing.
+Another way to solve this, and the method used by this code, is to implement pagination in the backward direction such that it becomes possible to start paginating forward or backward from any point in a book. The problem with this solution is that paginating backward and forward will sometimes give different results for the same page. That is: Moving one page forward and then one page back can result in different content being shown. This is due to CSS rules such as `break-before` which can cause a bunch of empty space at the end of a page when paginating forward but not when paginating backward.
 
-There are two side-effects from not having backwards pagination. First, going to a bookmarked location will only be precise to the page since we can't just start paginating from an arbitrary element but have to start paginating from page 1. If e.g. the font size has been changed since the bookmark was created then the bookmark may no longer be at the start of a page.
+If the `cacheForwardPagination` option is true (the default) then a hybrid solution is used where the results of forward pagination are remembered and re-used when backward pagination such that moving back and forth over the same pages won't give different results. However, if no forward pagination has has occurred before backward paginating (or the cache has been invalidated by font or page size changes) then true backward paginating is used.
 
-Second, in order to paginate backwards the paginator must first paginate forwards to the current location from page 1.
-
-If we had backwards pagination then it would be trivial to jump to a precise bookmark and move forwards or backwards from there.
-
-# Options
-
-`repeatTableHeader`: If this is true and a page break happens inside a `<table>` element, then the last header row before the page break (if any) will be repeated on the next page. This works for both `<thead>` elements and `<tr>` elements with `<th>` elements inside. If neither `<thead>` nor `<th>` elements are used then the header element cannot be detected. Default value is true.
+An odd side-effect of this is that when backward paginating all the way back to the front page without a cache, the first page can render differently from if the user had started reading the book from the first page. In this situation calling `.prevPage` again when already on the first page will re-render the first page as if forward paginating from page 1.
 
 # ToDo
 
 Finish reverse pagination:
 
-* Make it possible to go to first page
 * Ensure re-adding last table header works
 * Make sure all CSS break rules are supported (at least same as forward pagination)
-* Going back when on first page should run the firstPage function to re-render in forward order
-* If page start point is already known from forward pagination then re-use when going to the prevous page instead of reverse paginating
 
 Important:
 

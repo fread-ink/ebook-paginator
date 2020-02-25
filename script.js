@@ -308,15 +308,13 @@ function createIframeContainer() {
   return iframeElement;
 }
 
-// Traverse the DOM in the exact same manner as
-// the paginate() function, counting nodes in the same way
-// until the specified count is reached
-
 
 class Paginator {
 
   constructor(containerID, chapterURI, opts) {
     this.opts = opts || {};
+    
+    this.opts.cacheForwardPagination = ((opts.cacheForwardPagination === undefined) ? true : opts.cacheForwardPagination);
     this.opts.repeatTableHeader = ((opts.repeatTableHeader === undefined) ? true : opts.repeatTableHeader);
 
     // Does the page currently overflow elements at the top?
@@ -537,7 +535,6 @@ class Paginator {
       i = 1;
     }
 
-    console.log("Trying:", node);
     while(true) {
 
       if(i < 0) i = 0;
@@ -567,7 +564,6 @@ class Paginator {
           }
         } else {
           top = Math.round(range.getBoundingClientRect().top - this.getTopSpacing(el));
-          console.log("  TOP:", top, this.page.getBoundingClientRect().top);
           if(top < 0) {
             tooFar = true;
           } else {
@@ -709,7 +705,7 @@ class Paginator {
     return true;
   }
   
-  async nextPage(cb) {
+  async nextPage() {
     this.curPage++;
     const curPageStartRef = this.pages[this.curPage];
 
@@ -733,21 +729,30 @@ class Paginator {
   async prevPage() {
     const curPageStartRef = this.pages[this.curPage];
     if(!curPageStartRef || !curPageStartRef.node) return false;
-    
+
     this.curPage--;
-    if(this.curPage < 1) return false;
-
-    this.setOverflowTop();
-    const prevPageStartRef = await this.paginate(curPageStartRef.node, curPageStartRef.offset, true)
-    this.setOverflowBottom();
-
-
-    if(!prevPageStartRef || !prevPageStartRef.node) {
-      return false; // no more pages
+    if(this.curPage < 0) {
+      this.curPage = 0;
+      return await this.firstPage();
     }
-    
-    this.pages[this.curPage] = prevPageStartRef;
-    this.curNodeCount -= curPageStartRef.nodesTraversed;
+
+    var prevPageStartRef = this.pages[this.curPage];
+
+    // If we shouldn't use the cache or don't have a cache entry for this page
+    // then paginate backwards
+    if(!this.opts.cacheForwardPagination || !prevPageStartRef) {
+      console.log("backwards");
+      prevPageStartRef = await this.paginateBackwards(curPageStartRef.node, curPageStartRef.offset)
+      if(!prevPageStartRef || !prevPageStartRef.node) {
+        return false; // no more pages
+      }
+      this.pages[this.curPage] = prevPageStartRef;
+    } else {
+      // Paginate using the previously cached page start location
+      prevPageStartRef = await this.paginate(prevPageStartRef.node, prevPageStartRef.offset)
+    }
+
+    this.curNodeCount -= prevPageStartRef.nodesTraversed;
     
     if(typeof prevPageStartRef.offset === 'number') {
       this.curNodeOffset = prevPageStartRef.offset;
@@ -757,32 +762,19 @@ class Paginator {
     return this.curPage;
   }
 
-  
-  async prevPage_old() {
-    const nodesToRemove = this.pages[this.curPage].nodesTraversed;
-    this.curPage--;
-                
-    if(this.curPage < 0) {
-      this.curPage = 0;
-      return 0;
-    }
-    const page = this.pages[this.curPage];
-    
+  redraw(doInvalidateCache) {
+    if(doInvalidateCache) {
+      this.invalidateCache()
+    };
     // TODO implement
-    if(!page) throw new Error("Unknown starting point for page");
-    
-    const prevPageRef = await this.paginate(page.node, page.offset);
-    
-    if(!prevPageRef || !prevPageRef.node) return false;
-
-    if(this.curPage <= 0) {
-      this.curNodeCount = 0;
-    } else {
-      this.curNodeCount -= nodesToRemove;
-    }
-
-    return this.curPage;
   }
+
+  // invalidate all but the reference to the start of the current page
+  invalidateCache() {
+    var cur = this.pages[this.curPage];
+    this.pages = [];
+    this.pages[this.curPage] = cur;
+  }  
 
   async gotoBookmark(count, offset) {
     const node = this.findNodeWithCount(this.doc.body, count);
@@ -795,7 +787,14 @@ class Paginator {
    
     return {nodeCount: this.curNodeCount, offset: this.curNodeOffset}
   }
-  
+
+  async paginateBackwards(node, offset) {
+    this.setOverflowTop();
+    const ret = await this.paginate(node, offset, true)
+    this.setOverflowBottom();
+    return ret;
+  }
+    
   // Render the next page's content into the this.page element
   // and return a reference to the beginning of the next page
   // of the form: {node: <start_node>, offset: <optional_integer_offset_into_node>}
@@ -883,8 +882,12 @@ class Paginator {
         ({node, target, depth} = appendPrevNode(node, target, depth));
       }
 
+      if(!node || !target) {
+        return null;
+      }
+      
       // Warning: Changing the way this is counted will break existing bookmarks
-        nodesTraversed++;
+      nodesTraversed++;
       
       // We found a node that doesn't want us to break inside.
       // Save the current location and depth so we can break before
@@ -955,7 +958,7 @@ class Paginator {
 
           // Find the position inside the text node where we should break
           offset = this.findOverflowOffset(target, reverse);
-          console.log("got offset:", offset);
+
           tmp = target.parentNode;
           tmp.removeChild(target);
 
@@ -1072,7 +1075,9 @@ function init() {
 //  const chapterURI = 'vertical.html';
   
   const paginator = new Paginator(pageID, chapterURI, {
-    columnLayout: false
+    columnLayout: false,
+    repeatTableHeader: false,
+    cacheForwardPagination: true
   });
 
   window.setTop = paginator.setOverflowTop.bind(paginator);
