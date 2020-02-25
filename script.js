@@ -44,6 +44,24 @@ async function nextTick(func) {
   });
 }
 
+var nextStep;
+
+async function waitForPress(func) {
+  return new Promise((resolve, reject) => {
+    nextStep = () => {
+      func().then(resolve)
+    };
+  });
+}
+
+async function wait(func, delay) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      func().then(resolve)
+    }, delay);
+  });
+}
+
 async function waitForImage(img) {
   if(img.complete) return true;
   return new Promise(function(cb) {
@@ -151,50 +169,6 @@ function appendAsFirstChild(parent, node) {
   return parent.insertBefore(node, parent.firstChild);
 }
 
-// Traverse recursively to previous node in a DOM tree
-// and copy it to the equivalent location in the target DOM tree
-// if it doesn't already exist, while tracking tree depth.
-// Shallow copy is preferred when possible, but is not always
-// viable while traversing in reverse order
-// since a node should never be added without its ancestor nodes
-function appendPrevNode(node, target, depth) {
-  var tmp;
-  
-  if(node.previousSibling) {
-    node = node.previousSibling;
-		tmp = node.cloneNode();
-    appendAsFirstChild(target.parentNode, tmp);
-    target = tmp;
-
-    while(node.childNodes.length) {
-      node = node.lastChild;
-		  tmp = node.cloneNode();
-      target.appendChild(tmp);
-      target = tmp;
-      depth++;
-    }
-    
-	} else if(node.parentNode) {
-
-    node = node.parentNode;
-    
-    // Don't proceed past body element in source document
-    if(toLower(node.tagName) === 'body') return {};
-
-    // This should never happen
-    if(!target.parentNode) {
-      console.error("failure in appendPrevNode()");
-      return {}; 
-    }
-    
-    target = target.parentNode;
-    depth--;
-	}
-
-  if(!node) return {}; // no more pages
-  
-  return {node, target, depth};
-}
 
 // Traverse backwards through siblings and parents
 // until a <thead> or a <tr> containing a <th> is found
@@ -367,6 +341,60 @@ class Paginator {
     }.bind(this));
   }
 
+  // Traverse recursively to previous node in a DOM tree
+  // and copy it to the equivalent location in the target DOM tree
+  // if it doesn't already exist, while tracking tree depth.
+  // Shallow copy is preferred when possible, but is not always
+  // viable while traversing in reverse order
+  // since a node should never be added without its ancestor nodes
+  _appendPrevNode(node, target, depth) {
+    var tmp;
+    var forceAvoidInside;
+    
+    if(node.previousSibling) {
+      node = node.previousSibling;
+		  tmp = node.cloneNode();
+      appendAsFirstChild(target.parentNode, tmp);
+      target = tmp;
+
+      if(!forceAvoidInside && this.shouldBreak(node) === 'avoid-inside') {
+        forceAvoidInside = {node, target, depth};
+      }      
+      
+      while(node.childNodes.length) {
+        node = node.lastChild;
+		    tmp = node.cloneNode();
+        target.appendChild(tmp);
+        target = tmp;
+        depth++;
+        
+        if(!forceAvoidInside && this.shouldBreak(node) === 'avoid-inside') {
+          forceAvoidInside = {node, target, depth};
+        }      
+      }
+      
+	  } else if(node.parentNode) {
+
+      node = node.parentNode;
+      
+      // Don't proceed past body element in source document
+      if(toLower(node.tagName) === 'body') return {};
+
+      // This should never happen
+      if(!target.parentNode) {
+        console.error("failure in appendPrevNode()");
+        return {}; 
+      }
+      
+      target = target.parentNode;
+      depth--;
+	  }
+
+    if(!node) return {}; // no more pages
+    
+    return {node, target, depth, forceAvoidInside};
+  }
+  
   // Make page overflow at top
   setOverflowTop() {
     this.overflowTop = true;
@@ -416,6 +444,7 @@ class Paginator {
       if(toLower(node.tagName) === 'img') {
         await waitForImage(node);
       }
+
       if(this.page.getBoundingClientRect().top < 0) {
         return true;
       }
@@ -879,6 +908,7 @@ class Paginator {
     }
 
     const appendNode = async (cb) => {
+      var forceAvoidInside;
       
       // If the page number changes while we are paginating
       // then stop paginating immediately
@@ -892,7 +922,7 @@ class Paginator {
       if(!reverse) {
         ({node, target, depth} = appendNextNode(node, target, depth));
       } else {
-        ({node, target, depth} = appendPrevNode(node, target, depth));
+        ({node, target, depth, forceAvoidInside} = this._appendPrevNode(node, target, depth));
       }
 
       if(!node || !target) {
@@ -901,12 +931,20 @@ class Paginator {
       
       // Warning: Changing the way this is counted will break existing bookmarks
       nodesTraversed++;
+
+      // Since appendPrevNode sometimes appends multiple nodes
+      // in order to re-create ancestor structure, it does its own checking
+      // of whether we should avoid breaking inside a node
+      if(forceAvoidInside) {
+        avoidInside = {node: forceAvoidInside.node, target: forceAvoidInside.target, nodesTraversed};
+        breakAtDepth = forceAvoidInside.depth;
+      }
       
       // We found a node that doesn't want us to break inside.
       // Save the current location and depth so we can break before
       // this node if any of its children end up causing an overflow
       shouldBreak = this.shouldBreak(target);
-      if(shouldBreak === 'avoid-inside') {
+      if(!avoidInside && shouldBreak === 'avoid-inside') {
         avoidInside = {node, target, nodesTraversed};
         breakAtDepth = depth;
 
@@ -1006,11 +1044,13 @@ class Paginator {
         }
       }
 
-      // TODO run this e.g. every 200 ms
+      // TODO run this with nextTick e.g. every 200 ms
       // so the browser tab doesn't feel unresponsive to the user
-      //return await nextTick(appendNode);
-     
-      return await appendNode();      
+//      if(reverse) {
+//        return await waitForPress(appendNode);
+//      } else {
+      return await appendNode();
+//      } 
     }
 
     return await appendNode();
@@ -1044,7 +1084,11 @@ class Paginator {
       this.gotoBookmark(128, 196);
       break;
     case 113: // q
-
+      console.log('step');
+      if(nextStep) {
+        nextStep();
+        nextStep = null;
+      }
       break;
       
     case 98: // 'b'

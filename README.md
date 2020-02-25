@@ -98,7 +98,6 @@ Important:
 * Copy CSS into iframe document and wait for it to load
 * Also copy inline styles into iframe document
 * Add option to inject CSS (by URI)
-* Quietly paginate several pages ahead in the background (especially backwards)
 * Unit tests
 
 Bugs:
