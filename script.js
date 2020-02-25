@@ -101,7 +101,8 @@ function request(uri, isBinary, cb) {
 // and shallow-copy it to the equivalent location in the target DOM tree
 // while tracking tree depth
 function appendNextNode(node, target, depth) {
-
+  var tmp;
+  
   if(node.childNodes.length) {
     node = node.firstChild;
     depth++;
@@ -118,7 +119,7 @@ function appendNextNode(node, target, depth) {
 	} else {
 
     // Don't proceed past body element in source document
-    if(toLower(node.tagName) === 'body') return false;
+    if(toLower(node.tagName) === 'body') return {};
     
 		while(node) {
 			node = node.parentNode;
@@ -135,7 +136,60 @@ function appendNextNode(node, target, depth) {
 		}
 	}
 
-  if(!node) return false; // no more pages
+  if(!node) return {}; // no more pages
+  
+  return {node, target, depth};
+}
+
+
+function appendAsFirstChild(parent, node) {
+  if(!parent.firstChild) {
+    return parent.appendChild(node);
+  }
+  return parent.insertBefore(node, parent.firstChild);
+}
+
+// Traverse recursively to previous node in a DOM tree
+// and copy it to the equivalent location in the target DOM tree
+// if it doesn't already exist, while tracking tree depth.
+// Shallow copy is preferred when possible, but is not always
+// viable while traversing in reverse order
+// since a node should never be added without its ancestor nodes
+function appendPrevNode(node, target, depth) {
+  var tmp;
+  
+  if(node.previousSibling) {
+    node = node.previousSibling;
+		tmp = node.cloneNode();
+    appendAsFirstChild(target.parentNode, tmp);
+    target = tmp;
+
+    while(node.childNodes.length) {
+      node = node.lastChild;
+		  tmp = node.cloneNode();
+      target.appendChild(tmp);
+      target = tmp;
+      depth++;
+    }
+    
+	} else if(node.parentNode) {
+
+    node = node.parentNode;
+    
+    // Don't proceed past body element in source document
+    if(toLower(node.tagName) === 'body') return {};
+
+    // This should never happen
+    if(!target.parentNode) {
+      console.error("failure in appendPrevNode()");
+      return {}; 
+    }
+    
+    target = target.parentNode;
+    depth--;
+	}
+
+  if(!node) return {}; // no more pages
   
   return {node, target, depth};
 }
@@ -300,6 +354,7 @@ class Paginator {
       this.page.style.columnWidth = this.page.offsetWidth + 'px';
     } else {
       this.pageBottom = this.page.getBoundingClientRect().bottom;
+      this.pageTop = this.page.getBoundingClientRect().top;
     }
     
     document.body.addEventListener('keypress', this.onKeyPress.bind(this));
@@ -339,12 +394,33 @@ class Paginator {
     const style = window.getComputedStyle(el);
     return (parseFloat(style.getPropertyValue('padding-bottom')) || 0) + (parseFloat(style.getPropertyValue('margin-bottom')) || 0);
   }
+
+  // Get combined top-padding and top-spacing of element
+  getTopSpacing(el) {
+    if(!el) return 0;
+    const style = window.getComputedStyle(el);
+    return (parseFloat(style.getPropertyValue('padding-top')) || 0) + (parseFloat(style.getPropertyValue('margin-top')) || 0);
+  }
   
-  // Does the node overflow the bottom of the page
-  async didOverflow(node) {
+    
+  // Does the node overflow the bottom/top of the page
+  async didOverflow(node, topOverflow) {
     var el;
     var rect;
-    var bottom;
+    var edge;
+    var spacing;
+
+    // TODO can we use a similar simplified method for bottom overflow?
+    if(topOverflow) {
+      // If it's an image, wait for it to load
+      if(toLower(node.tagName) === 'img') {
+        await waitForImage(node);
+      }
+      if(this.page.getBoundingClientRect().top < 0) {
+        return true;
+      }
+      return false;
+    }
 
     if(node.getBoundingClientRect) {
 
@@ -362,28 +438,36 @@ class Paginator {
       el = this.getFirstElementAncestor(node);
     }
 
+    if(el) {
+      spacing = this.getBottomSpacing(el)
+    } else {
+      spacing = 0;
+    }
+
     if(this.columnLayout) {
+      // TODO add support for top overflow
       if(Math.round(rect.right) > Math.floor(this.pageRight)) {
         return true;
       }
     } else {
-      bottom = Math.round(rect.bottom + this.getBottomSpacing(el));
-
-      if(bottom > Math.floor(this.pageBottom)) {
+      edge = Math.round(rect.bottom + spacing);
+      if(edge > Math.floor(this.pageBottom)) {
         return true;
       }
     }
     return false
   }
 
-  // Warning: Changing the way this is counted will break existing bookmarks
+  // Warning: Changing the way nodes are counted, either here or in the
+  //          paginate() function will break existing bookmarks.
+  //
   // The paginate() function returns an integer `nodesTraversed`
   // which is a count of how many nodes were traversed when paginating the page.
   // The nextPage() and prevPage() functions keep track of how many nodes into
   // the paginated html we currently are and that information can be
   // retrieved with .getBookmark()
   // This function makes it possible to find the node again from its index/count
-  // as reported byt .getBookmark()
+  // as reported by .getBookmark()
   findNodeWithCount(startNode, nodeCount) {
     var node = startNode;
     var count = 0;
@@ -394,15 +478,10 @@ class Paginator {
       }
       
       if(node.childNodes.length) {
-
         node = node.firstChild;
-        
 	    } else if(node.nextSibling) {
-
         node = node.nextSibling;
-
 	    } else {
-
         // Don't proceed past body element in source document
         if(toLower(node.tagName) === 'body') return null;
         
@@ -428,11 +507,11 @@ class Paginator {
   // doesn't overflow.
   // Uses binary search to speed up the process.
   // Returns -1 if offset could not be found.
-  findOverflowOffset(node) {
+  findOverflowOffset(node, topOverflow) {
     const range = document.createRange();
     range.selectNode(node);
     range.setStart(node, 0);
-
+    
     const el = this.getFirstElementAncestor(node);
 
     if(this.columnLayout) {
@@ -441,10 +520,12 @@ class Paginator {
       var pageBottom = Math.floor(this.pageBottom);
     }
     const len = node.textContent.length;
+    range.setEnd(node, len - 1);
+    
     var prev = 0; 
     var tooFar = false;
     var prevTooFar;
-    var dist, halfDist, bottom;
+    var dist, halfDist, bottom, top;
 
     if(len === 0) return 0;
     if(len === 1) return 1;
@@ -455,27 +536,43 @@ class Paginator {
     if(len === 2) {
       i = 1;
     }
-    
+
+    console.log("Trying:", node);
     while(true) {
 
       if(i < 0) i = 0;
       if(i > len - 1) i = len - 1;
-      
-      range.setEnd(node, i);
+
+      if(!topOverflow) {
+        range.setEnd(node, i);
+      } else {
+        range.setStart(node, i);
+      }
 
       prevTooFar = tooFar;
       if(this.columnLayout) {
+        // TODO make this work with topOverflow
         if(range.getBoundingClientRect().right > pageRight) {
           tooFar = true;
         } else {
           tooFar = false;
         }
       } else {
-        bottom = Math.round(range.getBoundingClientRect().bottom + this.getBottomSpacing(el));
-        if(bottom > pageBottom) {
-          tooFar = true;
+        if(!topOverflow) {
+          bottom = Math.round(range.getBoundingClientRect().bottom + this.getBottomSpacing(el));
+          if(bottom > pageBottom) {
+            tooFar = true;
+          } else {
+            tooFar = false;
+          }
         } else {
-          tooFar = false;
+          top = Math.round(range.getBoundingClientRect().top - this.getTopSpacing(el));
+          console.log("  TOP:", top, this.page.getBoundingClientRect().top);
+          if(top < 0) {
+            tooFar = true;
+          } else {
+            tooFar = false;
+          }
         }
       }
 
@@ -493,14 +590,23 @@ class Paginator {
         }
 
         prev = i;
-        i += ((tooFar) ? -1 : 1);
+
+        if(!topOverflow) {
+          i += ((tooFar) ? -1 : 1);
+        } else {
+          i += ((tooFar) ? 1 : -1);
+        }
         continue;
       } 
 
       // binary search
       halfDist = Math.round(dist / 2);
       prev = i;
-      i += ((tooFar) ? -halfDist : halfDist);
+      if(!topOverflow) {
+        i += ((tooFar) ? -halfDist : halfDist);
+      } else {
+        i += ((tooFar) ? halfDist : -halfDist);        
+      }
     }
   }
 
@@ -614,17 +720,45 @@ class Paginator {
     if(!nextPageStartRef || !nextPageStartRef.node) return false; // no more pages
 
     this.pages[this.curPage+1] = nextPageStartRef;
+    this.curNodeCount += curPageStartRef.nodesTraversed;
+    
     if(typeof curPageStartRef.offset === 'number') {
-      this.curNodeCount += curPageStartRef.nodesTraversed;
       this.curNodeOffset = curPageStartRef.offset;
     } else {
-      this.curNodeCount += curPageStartRef.nodesTraversed;
       this.curNodeOffset = 0;
     }
     return this.curPage;
   }
 
   async prevPage() {
+    const curPageStartRef = this.pages[this.curPage];
+    if(!curPageStartRef || !curPageStartRef.node) return false;
+    
+    this.curPage--;
+    if(this.curPage < 1) return false;
+
+    this.setOverflowTop();
+    const prevPageStartRef = await this.paginate(curPageStartRef.node, curPageStartRef.offset, true)
+    this.setOverflowBottom();
+
+
+    if(!prevPageStartRef || !prevPageStartRef.node) {
+      return false; // no more pages
+    }
+    
+    this.pages[this.curPage] = prevPageStartRef;
+    this.curNodeCount -= curPageStartRef.nodesTraversed;
+    
+    if(typeof prevPageStartRef.offset === 'number') {
+      this.curNodeOffset = prevPageStartRef.offset;
+    } else {
+      this.curNodeOffset = 0;
+    }
+    return this.curPage;
+  }
+
+  
+  async prevPage_old() {
     const nodesToRemove = this.pages[this.curPage].nodesTraversed;
     this.curPage--;
                 
@@ -665,9 +799,10 @@ class Paginator {
   // Render the next page's content into the this.page element
   // and return a reference to the beginning of the next page
   // of the form: {node: <start_node>, offset: <optional_integer_offset_into_node>}
-  async paginate(node, offset) {
-    var tmp, i, shouldBreak, avoidInsideTarget, avoidInsideTraverseCount;
-    var forceBreak, breakBefore, avoidInsideNode;
+  async paginate(node, offset, reverse) {
+    var tmp, i, shouldBreak;
+    var forceBreak, breakBefore;
+    var avoidInside;
     const curPage = this.curPage;
     var target = this.page;
     var breakAtDepth = 0;
@@ -679,13 +814,13 @@ class Paginator {
     if(!offset) offset = 0;
     
     if(!node) return {node: null};
-    
+
     // if we're not on the first node in the source document
     if(toLower(node.tagName) !== 'body') {
 
       // Re-construct the ancestor structure
       // from the current point within the source document
-      // so content in the new page has the same structure
+      // so content in the new page has the same ancestor structure
       // as in the source document
       let {tree, innerMost} = cloneAncestors(node, this.opts.repeatTableHeader);
       if(tree) {
@@ -697,14 +832,26 @@ class Paginator {
       // create a new text node with the remaining content
       if(offset) {
         
-        tmp = document.createTextNode(node.textContent.slice(offset));
+        if(!reverse) {
+          tmp = document.createTextNode(node.textContent.slice(offset));
+        } else {
+          tmp = document.createTextNode(node.textContent.slice(0, offset));
+        }
         target.appendChild(tmp);
+        
         if(await this.didOverflow(tmp)) {
-          let newOffset = this.findOverflowOffset(tmp);
+          let newOffset = this.findOverflowOffset(tmp, reverse);
           target.removeChild(tmp);
-          tmp = document.createTextNode(tmp.textContent.slice(0, newOffset));
+          
+          if(!reverse) {
+            tmp = document.createTextNode(tmp.textContent.slice(0, newOffset));
+            offset += newOffset;
+          } else {
+            offset -= (tmp.textContent.length - newOffset);
+            tmp = document.createTextNode(tmp.textContent.slice(newOffset));
+          }
           target.appendChild(tmp);
-          offset += newOffset;
+          
           return {node, offset, nodesTraversed};
         }
         
@@ -720,54 +867,61 @@ class Paginator {
     }
 
     const appendNode = async (cb) => {
+      
       // If the page number changes while we are paginating
       // then stop paginating immediately
       if(curPage !== this.curPage) {
         return null;
       }
       
-      // Get the next node in the source document in order recursively
+      // Get the next/prev node in the source document in order recursively
       // and shallow copy the node to the corresponding spot in
       // the target location (inside this.page)
-      ({node, target, depth} = appendNextNode(node, target, depth));
+      if(!reverse) {
+        ({node, target, depth} = appendNextNode(node, target, depth));
+      } else {
+        ({node, target, depth} = appendPrevNode(node, target, depth));
+      }
 
       // Warning: Changing the way this is counted will break existing bookmarks
-      nodesTraversed++;
+        nodesTraversed++;
       
       // We found a node that doesn't want us to break inside.
       // Save the current location and depth so we can break before
       // this node if any of its children end up causing an overflow
       shouldBreak = this.shouldBreak(target);
       if(shouldBreak === 'avoid-inside') {
-        avoidInsideNode = node;
-        avoidInsideTarget = target;
-        avoidInsideTraverseCount = nodesTraversed;
+        avoidInside = {node, target, nodesTraversed};
         breakAtDepth = depth;
 
-        // We must have passed the "break-inside:nope" node without overflowing
-      } else if(depth <= breakAtDepth && node !== avoidInsideNode) {
+      // We must have passed the "break-inside:no" node without overflowing
+      } else if(depth <= breakAtDepth && avoidInside && node !== avoidInside.node) {
         breakAtDepth = 0;
-        avoidInsideTarget = null;
+        avoidInside = null;
       }
 
       // If the current node wants us to break before itself
       // and nodes have already been added to the page
       // then we want to force a break.
-      if(shouldBreak === 'before' && nodesAdded) {
+      
+      if(shouldBreak === 'before' && (nodesAdded || reverse)) {
         breakBefore = true;
       } else {
         breakBefore = false;
       }
 
-
-      var didOverflow = await this.didOverflow(target);
+      var didOverflow = await this.didOverflow(target, reverse);
+//      if(didOverflow) {
+//        console.log("DID OVERFLOW:", target);
+//      }
+      
       // If the page number changes while we are paginating
       // then stop paginating immediately
       if(curPage !== this.curPage) {
         return null;
       }
       
-      // If the first non-text node added caused an overflow
+      // If the first non-text node added to the page caused an overflow
       if(didOverflow && nodesAdded <= 0 && target.nodeType !== Node.TEXT_NODE) {
 
         // Force the node to fit
@@ -778,30 +932,49 @@ class Paginator {
 
         didOverflow = false;
       }  
+
+      // If reverse paginating and we didn't overflow
+      // and we should break before the current node
+      // then we're done with this page.
+      if(reverse && !didOverflow && breakBefore) {
+        return {node, offset, nodesTraversed};        
+      }
       
       // If adding the most recent node caused the page element to overflow
       if(didOverflow || breakBefore) {
 
         // If we're at or inside a node that doesn't want us to break inside
-        if(breakAtDepth && depth >= breakAtDepth) {
-          target = avoidInsideTarget.parentNode;
-          avoidInsideTarget.parentNode.removeChild(avoidInsideTarget);
-          return {node: avoidInsideNode, offset: 0, nodesTraversed: avoidInsideTraverseCount};
+        if(breakAtDepth && depth >= breakAtDepth && avoidInside) {
+          target = avoidInside.target.parentNode;
+          avoidInside.target.parentNode.removeChild(avoidInside.target);
+          return {node: avoidInside.node, offset: 0, nodesTraversed: avoidInside.nodesTraversed};
         }
         
         // If this is a text node and we're not supposed to break before
-        if(target.nodeType === Node.TEXT_NODE && !breakBefore) {
+        if(target.nodeType === Node.TEXT_NODE && (!breakBefore || reverse)) {
+
           // Find the position inside the text node where we should break
-          offset = this.findOverflowOffset(target);
+          offset = this.findOverflowOffset(target, reverse);
+          console.log("got offset:", offset);
           tmp = target.parentNode;
           tmp.removeChild(target);
-          
-          if(offset > 0) {
-            target = document.createTextNode(node.textContent.slice(0, offset));
-            tmp.appendChild(target);
+
+          if(!reverse) {
+            if(offset > 0) {
+              target = document.createTextNode(node.textContent.slice(0, offset));
+              tmp.appendChild(target);
+            } else {
+              target = tmp;
+              offset = null;
+            }
           } else {
-            target = tmp;
-            offset = null;
+            if(offset < (node.textContent.length - 1)) {
+              target = document.createTextNode(node.textContent.slice(offset));
+              tmp.appendChild(target);
+            } else {
+              target = tmp;
+              offset = null;
+            }
           }
           
         } else {

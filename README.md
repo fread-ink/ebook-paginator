@@ -91,6 +91,16 @@ If we had backwards pagination then it would be trivial to jump to a precise boo
 
 # ToDo
 
+Finish reverse pagination:
+
+* Make it possible to go to first page
+* Ensure re-adding last table header works
+* Make sure all CSS break rules are supported (at least same as forward pagination)
+* Going back when on first page should run the firstPage function to re-render in forward order
+* If page start point is already known from forward pagination then re-use when going to the prevous page instead of reverse paginating
+
+Important:
+
 * Copy CSS into iframe document and wait for it to load
 * Also copy inline styles into iframe document
 * Add option to inject CSS (by URI)
