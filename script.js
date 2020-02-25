@@ -44,8 +44,8 @@ async function nextTick(func) {
   });
 }
 
+// TODO Debug function. Not used in production
 var nextStep;
-
 async function waitForPress(func) {
   return new Promise((resolve, reject) => {
     nextStep = () => {
@@ -54,6 +54,7 @@ async function waitForPress(func) {
   });
 }
 
+// TODO Debug function. Not used in production
 async function wait(func, delay) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
@@ -291,7 +292,7 @@ class Paginator {
     this.opts = opts || {};
     
     this.opts.cacheForwardPagination = ((opts.cacheForwardPagination === undefined) ? true : opts.cacheForwardPagination);
-    this.opts.repeatTableHeader = ((opts.repeatTableHeader === undefined) ? true : opts.repeatTableHeader);
+    this.opts.repeatTableHeader = ((opts.repeatTableHeader === undefined) ? false : opts.repeatTableHeader);
 
     // Does the page currently overflow elements at the top?
     // If this is false then the page overflows at the bottom
@@ -529,6 +530,22 @@ class Paginator {
     }
     return null;
   }
+
+  // Must match the way prev _appendPrevNode() traverses
+  getPrevNode(node) {
+    // Don't proceed past body element in source document
+    if(toLower(node.tagName) === 'body') return node;
+    
+    if(node.previousSibling) {
+      node = node.previousSibling;
+      while(node.childNodes.length) {
+        node = node.lastChild;
+      }
+	  } else if(node.parentNode) {
+      node = node.parentNode;
+    }
+    return node;
+  }
   
   // Find the exact offset in a text node just before the overflow occurs
   // by using document.createRange() for a part of the text and adjusting
@@ -683,40 +700,7 @@ class Paginator {
   }
 
   async gotoPage(pageNumber) {
-    var nextPageRef;
-
-    if(this.gotoKnownPage(pageNumber)) {
-      this.curPage = pageNumber;
-      return true;
-    }
-
-    // Walk backwards until we find a starting node+offset we _do_ have
-    var startPage;
-    var i;
-    for(i = pageNumber-1; i >= 0; i--) {
-      if(this.pages[i]) {
-        startPage = i;
-        break;
-      }
-    }
-    if(!startPage) return false;
-    startPage--;
-
-    if(!await this.gotoKnownPage(startPage)) {
-      return false;
-    }
-    
-    // Paginate forward until we reach the desired page
-    var curPage;
-    do {
-      curPage = await this.nextPage();
-    } while(curPage && curPage < pageNumber);
-
-    if(curPage === pageNumber) {
-      this.curPage = pageNumber;
-      return true;
-    }
-    return false;
+    // TODO
   }
   
   async firstPage() {
@@ -773,8 +757,15 @@ class Paginator {
     // If we shouldn't use the cache or don't have a cache entry for this page
     // then paginate backwards
     if(!this.opts.cacheForwardPagination || !prevPageStartRef) {
-
-      prevPageStartRef = await this.paginateBackwards(curPageStartRef.node, curPageStartRef.offset)
+      var node;
+      // The page refs start at the beginning element of the current page
+      // so we don't want to repeat it unless there's an offset
+      if(!curPageStartRef.offset) {
+        node = this.getPrevNode(curPageStartRef.node);
+      } else {
+        node = curPageStartRef.node;
+      }
+      prevPageStartRef = await this.paginateBackwards(node, curPageStartRef.offset)
       if(!prevPageStartRef || !prevPageStartRef.node) {
         // no more pages
         this.curPage = 0;
@@ -798,11 +789,14 @@ class Paginator {
     return this.curPage;
   }
 
-  redraw(doInvalidateCache) {
+  async redraw(doInvalidateCache) {
     if(doInvalidateCache) {
       this.invalidateCache()
     };
-    // TODO implement
+    const curPageRef = this.pages[this.curPage];
+    if(!curPageRef || !curPageRef.node) return false;
+
+    const nextPageRef = await this.paginate(curPageRef.node, curPageRef.offset);
   }
 
   // invalidate all but the reference to the start of the current page
@@ -813,8 +807,13 @@ class Paginator {
   }  
 
   async gotoBookmark(count, offset) {
+    if(typeof count === 'object') {
+      offset = count.offset;
+      count = count.count;
+    }
     const node = this.findNodeWithCount(this.doc.body, count);
     if(!node) return;
+    console.log("node:", offset, node);
 
     const nextPageRef = await this.paginate(node, offset);
     this.curPage = 0
@@ -1002,7 +1001,7 @@ class Paginator {
         }
         
         // If this is a text node and we're not supposed to break before
-        if(target.nodeType === Node.TEXT_NODE && (!breakBefore || reverse)) {
+        if(target.nodeType === Node.TEXT_NODE && (!breakBefore)) {
 
           // Find the position inside the text node where we should break
           offset = this.findOverflowOffset(target, reverse);
@@ -1070,11 +1069,14 @@ class Paginator {
   }
   
   async onKeyPress(e) {
-
+//    console.log(e.charCode);
     switch(e.charCode) {
       
     case 32: // space
       this.nextPage();
+      break;
+    case 114: // r
+      this.redraw();
       break;
     case 116: // t
       this.speedTest();

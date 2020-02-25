@@ -25,11 +25,37 @@ const paginator = new Paginator(pageID, contentURI, opts);
 
 Where `pageID` is the `id=` of the element and `contentURI` is the URI of an HTML document you want to show, one page at a time, inside your `pageID` element.
 
-## opts
+## Constructor options
 
 `cacheForwardPagination`: If this is true then the point at which page breaks happened during forward pagination is cached and re-used when backward paginating to the same pages. This is nice because backward pagination does not always result in page breaks in the same locations as forward pagination (due to CSS rules like break-before) but it may feel odd to the user if moving forward one page, and then back one page, gives a different result. By enabling caching, the pages will be paginated the same. Note that backwards pagination is never cached/re-used, only forward pagination. This option has no effect if a location was arrived at by means other than forward paginating to the page (e.g. using a bookmark) since then no pagination results have been prevously cached. If this option is false then pagination is always re-calculated. This cache should be invalidated when e.g. font size or page size is changed `.redraw(true)`. Default value is true. 
 
-`repeatTableHeader`: If this is true and a page break happens inside a `<table>` element, then the last header row before the page break (if any) will be repeated on the next page. This works for both `<thead>` elements and `<tr>` elements with `<th>` elements inside. If neither `<thead>` nor `<th>` elements are used then the header element cannot be detected. Default value is true.
+## nextPage()
+
+Paginate another pageful of content in the forward direction.
+
+## prevPage()
+
+Paginate another pageful of content in the backward direction.
+
+## firstPage()
+
+Go to beginning of document and paginate a pageful of content.
+
+## getBookmark()
+
+Returns a serializable bookmark object for the current location (top of current page). Note that boomark objects only remain valid as long as the paginated html that the bookmark was made for does not change.
+
+## gotoBookmark(bookmark)
+
+Start paginating from the bookmarked location. Takes a bookmark object as argument.
+
+## redraw()
+
+Re-render the currently shown page. Useful if the font or page size changes.
+
+## Experimental constructor options
+
+`repeatTableHeader`: Not currently reliable. If this is true and a page break happens inside a `<table>` element, then the last header row before the page break (if any) will be repeated on the next page. This works for both `<thead>` elements and `<tr>` elements with `<th>` elements inside. If neither `<thead>` nor `<th>` elements are used then the header element cannot be detected. Default value is false.
 
 `columnLayout`: This feature hasn't been maintained recently and may not work as expected. Setting `opts.columnLayout` to `true` will cause the paginator to use a different method for calculating how much to put on each page. This method is based on setting the `column-width` CSS property. This will use the browser's built-in support for the CSS rules `break-inside`, `break-before` and `break-after` which is probably better than this library's support but will incur a serious performance penalty on WebKit (4-5x slower). See the "Page breaks" section.
 
@@ -88,13 +114,8 @@ If you don't need speed or low memory consumption then take a look at:
 
 # ToDo
 
-Finish reverse pagination:
-
-* Ensure re-adding last table header works
-
 Important:
 
-* Implement `.redraw()`
 * Copy CSS into iframe document and wait for it to load
 * Also copy inline styles into iframe document
 * Add option to inject CSS (by URI)
@@ -102,13 +123,16 @@ Important:
 
 Bugs:
 
-* Fix doubling of table header if cut-off happens at top of table
+* getBookmark is broken for reverse pagination
 * Trying to paginate to next page during load (waiting for img) stops pagination
+* Fix `repeatTableHeader` doubling of table header if cut-off happens at top of table
+* Make `repeatTableHeader` work for backward pagination
 
 Nice to have:
 
+* Implement gotoPage()
+* Handle top-to-bottom text flow and mixed side-to-side/top-to-bottom content
 * Add pageCount function
 * Add option to auto-recalc on browser resize or font size changes
-* Handle top-to-bottom text flow and mixed side-to-side/top-to-bottom content
 * Add support for at least the 'truthy' values for `break-after`
 
