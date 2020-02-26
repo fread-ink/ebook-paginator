@@ -629,7 +629,7 @@ class Paginator {
       }
 
       dist = Math.abs(prev - i);
-
+      
       // Switch to incremental search if we moved less than 3 chars
       // since last loop iteration
       if(dist < 3) {
@@ -638,7 +638,7 @@ class Paginator {
           if(!tooFar && prevTooFar) return i;
         }
         if(dist === 0) {
-          return -1;
+          return i;
         }
 
         prev = i;
