@@ -301,9 +301,6 @@ class Paginator {
     if(this.opts.columnLayout) {
       this.columnLayout = true;
     }
-
-    this.curNodeCount = 0; // see findNodeWithCount()
-    this.curNodeOffset = 0;
     
     this.curPage = 0;
     this.pages = {};
@@ -367,7 +364,7 @@ class Paginator {
 		    tmp = node.cloneNode();
         target.appendChild(tmp);
         target = tmp;
-        depth++;
+        depth++;;
         
         if(!forceAvoidInside && this.shouldBreak(node) === 'avoid-inside') {
           forceAvoidInside = {node, target, depth};
@@ -488,24 +485,35 @@ class Paginator {
     return false
   }
 
-  // Warning: Changing the way nodes are counted, either here or in the
-  //          paginate() function will break existing bookmarks.
+  // Warning: Changing the way nodes are counted here
+  //          will break existing bookmarks.
   //
-  // The paginate() function returns an integer `nodesTraversed`
-  // which is a count of how many nodes were traversed when paginating the page.
-  // The nextPage() and prevPage() functions keep track of how many nodes into
-  // the paginated html we currently are and that information can be
-  // retrieved with .getBookmark()
-  // This function makes it possible to find the node again from its index/count
-  // as reported by .getBookmark()
-  findNodeWithCount(startNode, nodeCount) {
+  // If given a node, it will traverse the DOM, counting nodes
+  // until it finds the node and then return the count.
+  // If given a count it will do the same but return the node
+  // when it reaches the specified count
+  findNodeOrCount(startNode, nodeOrCount) {
+    var nodeCount;
+    var nodeToFind;
+    if(typeof nodeOrCount === 'number') {
+      nodeCount = nodeOrCount;
+    } else {
+      nodeToFind = nodeOrCount;
+    }
     var node = startNode;
     var count = 0;
     
     while(node) {
-      if(count === nodeCount) {
-        return node;
+      if(nodeCount) {
+        if(count === nodeCount) {
+          return node;
+        }
+      } else if(nodeToFind) {
+        if(node === nodeToFind) {
+          return count;
+        }
       }
+      
       
       if(node.childNodes.length) {
         node = node.firstChild;
@@ -709,18 +717,18 @@ class Paginator {
       node: this.doc.body,
       offset: 0
     };
-    this.curPage = 0;
-    this.curNodeCount = 0;
-    this.curNodeOffset = 0;
+    this.curPage = 0;;
     
     const nextPageStartRef = await this.paginate(this.doc.body, 0);
     if(!nextPageStartRef || !nextPageStartRef.node) return false;
 
     this.pages[this.curPage+1] = nextPageStartRef;
+    
     return true;
   }
   
   async nextPage() {
+   
     this.curPage++;
     const curPageStartRef = this.pages[this.curPage];
 
@@ -731,13 +739,7 @@ class Paginator {
     if(!nextPageStartRef || !nextPageStartRef.node) return false; // no more pages
 
     this.pages[this.curPage+1] = nextPageStartRef;
-    this.curNodeCount += curPageStartRef.nodesTraversed;
     
-    if(typeof curPageStartRef.offset === 'number') {
-      this.curNodeOffset = curPageStartRef.offset;
-    } else {
-      this.curNodeOffset = 0;
-    }
     return this.curPage;
   }
 
@@ -773,19 +775,13 @@ class Paginator {
       }
       
       this.pages[this.curPage] = prevPageStartRef;
+
       
     } else {
       // Paginate using the previously cached page start location
       prevPageStartRef = await this.paginate(prevPageStartRef.node, prevPageStartRef.offset)
     }
-
-    this.curNodeCount -= prevPageStartRef.nodesTraversed;
     
-    if(typeof prevPageStartRef.offset === 'number') {
-      this.curNodeOffset = prevPageStartRef.offset;
-    } else {
-      this.curNodeOffset = 0;
-    }
     return this.curPage;
   }
 
@@ -811,21 +807,26 @@ class Paginator {
       offset = count.offset;
       count = count.count;
     }
-    const node = this.findNodeWithCount(this.doc.body, count);
+    const node = this.findNodeOrCount(this.doc.body, count);
     if(!node) return;
 
     const nextPageRef = await this.paginate(node, offset);
     this.curPage = 0
     this.pages[0] = {
       node: node,
-      offset: offset
+      offset: offset,
+      nodesTraversed: nextPageRef.nodesTraversed
     };
+    delete nextPageRef.nodesTraversed;
     this.pages[1] = nextPageRef;
+    
   }
 
   getBookmark() {
-   
-    return {nodeCount: this.curNodeCount, offset: this.curNodeOffset}
+    const ref = this.pages[this.curPage];
+    const count = this.findNodeOrCount(this.doc.body, ref.node);
+    
+    return {count, offset: ref.offset};
   }
 
   async paginateBackwards(node, offset) {
@@ -847,7 +848,6 @@ class Paginator {
     var breakAtDepth = 0;
     var depth = 1; // current depth in DOM hierarchy
     var nodesAdded = 0;
-    var nodesTraversed = 0;
 
     this.page.innerHTML = ''; // clear the page container
     if(!offset) offset = 0;
@@ -891,7 +891,7 @@ class Paginator {
           }
           target.appendChild(tmp);
           
-          return {node, offset, nodesTraversed};
+          return {node, offset};
         }
         
         offset = 0;
@@ -906,7 +906,7 @@ class Paginator {
     }
 
     const appendNode = async (cb) => {
-      var forceAvoidInside;
+      var forceAvoidInside, traversed;
       
       // If the page number changes while we are paginating
       // then stop paginating immediately
@@ -919,6 +919,7 @@ class Paginator {
       // the target location (inside this.page)
       if(!reverse) {
         ({node, target, depth} = appendNextNode(node, target, depth));
+        
       } else {
         ({node, target, depth, forceAvoidInside} = this._appendPrevNode(node, target, depth));
       }
@@ -927,14 +928,13 @@ class Paginator {
         return null;
       }
       
-      // Warning: Changing the way this is counted will break existing bookmarks
-      nodesTraversed++;
+
 
       // Since appendPrevNode sometimes appends multiple nodes
       // in order to re-create ancestor structure, it does its own checking
       // of whether we should avoid breaking inside a node
       if(forceAvoidInside) {
-        avoidInside = {node: forceAvoidInside.node, target: forceAvoidInside.target, nodesTraversed};
+        avoidInside = {node: forceAvoidInside.node, target: forceAvoidInside.target};
         breakAtDepth = forceAvoidInside.depth;
       }
       
@@ -943,7 +943,7 @@ class Paginator {
       // this node if any of its children end up causing an overflow
       shouldBreak = this.shouldBreak(target);
       if(!avoidInside && shouldBreak === 'avoid-inside') {
-        avoidInside = {node, target, nodesTraversed};
+        avoidInside = {node, target};
         breakAtDepth = depth;
 
       // We must have passed the "break-inside:no" node without overflowing
@@ -986,7 +986,7 @@ class Paginator {
       // and we should break before the current node
       // then we're done with this page.
       if(reverse && !didOverflow && breakBefore) {
-        return {node, offset, nodesTraversed};        
+        return {node, offset};
       }
       
       // If adding the most recent node caused the page element to overflow
@@ -996,7 +996,7 @@ class Paginator {
         if(breakAtDepth && depth >= breakAtDepth && avoidInside) {
           target = avoidInside.target.parentNode;
           avoidInside.target.parentNode.removeChild(avoidInside.target);
-          return {node: avoidInside.node, offset: 0, nodesTraversed: avoidInside.nodesTraversed};
+          return {node: avoidInside.node, offset: 0};
         }
         
         // If this is a text node and we're not supposed to break before
@@ -1034,7 +1034,7 @@ class Paginator {
           offset = null;
         }
 
-        return {node, offset, nodesTraversed};
+        return {node, offset};
       } else {
         // Count all nodes except pure whitespace text nodes
         if(!(target.nodeType === Node.TEXT_NODE && !target.textContent.trim().length)) {

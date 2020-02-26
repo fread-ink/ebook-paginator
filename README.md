@@ -123,7 +123,7 @@ Important:
 
 Bugs:
 
-* getBookmark is broken for reverse pagination
+* When reverse paginating, offset is sometimes -1
 * Trying to paginate to next page during load (waiting for img) stops pagination
 * Fix `repeatTableHeader` doubling of table header if cut-off happens at top of table
 * Make `repeatTableHeader` work for backward pagination
