@@ -116,16 +116,16 @@ If you don't need speed or low memory consumption then take a look at:
 
 Important:
 
+
 * Copy CSS into iframe document and wait for it to load
-* Also copy inline styles into iframe document
+* Also copy meta tags and inline styles into iframe document
 * Add option to inject CSS (by URI)
+* Detect doctype of document and ensure iframe document is the same?
 * Unit tests
 
-Bugs:
+Major bugs:
 
 * Trying to paginate to next page during load (waiting for img) stops pagination
-* Fix `repeatTableHeader` doubling of table header if cut-off happens at top of table
-* Make `repeatTableHeader` work for backward pagination
 
 Nice to have:
 
@@ -135,3 +135,7 @@ Nice to have:
 * Add option to auto-recalc on browser resize or font size changes
 * Add support for at least the 'truthy' values for `break-after`
 
+Minor bugs:
+
+* Fix `repeatTableHeader` doubling of table header if cut-off happens at top of table
+* Make `repeatTableHeader` work for backward pagination

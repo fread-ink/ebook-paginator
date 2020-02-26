@@ -5,33 +5,24 @@ const iframeHTML = `<!DOCTYPE html>
 <html>
   <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
-    <title>iframe paginator test</title>
     <style type="text/css">
       body {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        margin: 0;
-        padding: 0;
+        display: block !important; 
+        position: absolute !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
       }
-      #page {
-        display: block;
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        margin: 0;
-        padding: 0;
-      }
+
+/* TODO remove */
 h2 {
     break-before: page;
 }
     </style>
   </head>
   <body>
-    <div id="page"></div>
   </body>
 </html>`;
 
@@ -274,6 +265,7 @@ function createIframeContainer() {
 
   var iframeElement = document.createElement('iframe');
   iframeElement.src = "about:blank";
+  iframeElement.scrolling = 'no';
   iframeElement.style.position = 'absolute';
   iframeElement.style.display = 'block';
   iframeElement.style.top = '0';
@@ -281,7 +273,8 @@ function createIframeContainer() {
   iframeElement.style.width = '100%';
   iframeElement.style.height = '100%';
   iframeElement.style.border = 'none';
-
+  iframeElement.style.overflow = 'hidden';
+  
   return iframeElement;
 }
 
@@ -316,7 +309,8 @@ class Paginator {
     this.iDoc.write(iframeHTML);
     this.iDoc.close();
 
-    this.page = this.iDoc.getElementById('page');
+    //    this.page = this.iDoc.getElementById('page');
+    this.page = this.iDoc.body;
     
     this.setOverflowBottom();
 
@@ -638,6 +632,8 @@ class Paginator {
           if(!tooFar && prevTooFar) return i;
         }
         if(dist === 0) {
+          // This only happens when topOverflow is true
+          // and all possible offsets result in overflow
           if(i === len - 1) {
             return i;
           }
