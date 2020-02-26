@@ -638,7 +638,10 @@ class Paginator {
           if(!tooFar && prevTooFar) return i;
         }
         if(dist === 0) {
-          return i;
+          if(i === len - 1) {
+            return i;
+          }
+          return -1;
         }
 
         prev = i;
