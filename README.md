@@ -35,15 +35,19 @@ Where `pageID` is the `id=` of the element and `contentURI` is the URI of an HTM
 
 `cacheForwardPagination`: If this is true then the point at which page breaks happened during forward pagination are cached and re-used when backward paginating to the same pages. This is nice because backward pagination does not always result in page breaks in the same locations as forward pagination (due to CSS rules like break-before) but it may feel odd to the user if moving forward one page and then back one page gives a different result. By enabling caching the pages will be paginated the same. Note that backwards pagination is never cached/re-used, only forward pagination. This option has no effect if a location was arrived at by means other than forward paginating to the page (e.g. using a bookmark) since then no pagination results have been prevously cached. If this option is false then pagination is always re-calculated. This cache should be invalidated when e.g. font size or page size is changed using `.redraw(true)`. Default value for this option is true. 
 
-## nextPage()
+## async load(contentURI)
+
+Load an HTML document from the specified URI and paginate the first page.
+
+## async nextPage()
 
 Paginate another pageful of content in the forward direction.
 
-## prevPage()
+## async prevPage()
 
 Paginate another pageful of content in the backward direction.
 
-## firstPage()
+## async firstPage()
 
 Go to beginning of document and paginate a pageful of content.
 
@@ -51,13 +55,32 @@ Go to beginning of document and paginate a pageful of content.
 
 Returns a serializable bookmark object for the current location (top of current page). Note that boomark objects only remain valid as long as the paginated html that the bookmark was made for does not change.
 
-## gotoBookmark(bookmark)
+## async gotoBookmark(bookmark)
 
 Start paginating from the bookmarked location. Takes a bookmark object as argument.
 
-## redraw()
+## async redraw()
 
 Re-render the currently shown page. Useful if the font or page size changes.
+
+## async injectCSS(css, opts)
+
+Add custom CSS to the page. `css` is a string containing the CSS.
+
+```
+opts.order: 'after' // or 'before' inject <style> tag before or after existing tags
+opts.preprocess: true // Should CSS be pre-processed using PostCSS (if available)
+``` 
+
+Returns the generated `<style>` element.
+
+## async injectCSSByURI(uri, opts)
+
+Same as `injectCSS()` but takes a `uri` to a CSS file.
+
+## clearCSS(clearAll)
+
+Remove all injected CSS elements. If `clearAll` is true, then remove _all_ CSS, including CSS from the source document (except in-line CSS).
 
 ## Experimental constructor options
 
@@ -132,7 +155,6 @@ Important:
 
 * Also copy meta tags and inline styles into iframe document
 * Add option to inject CSS (by URI)
-* Detect doctype of document and ensure iframe document is the same?
 * Unit tests
 
 Major bugs:
@@ -141,6 +163,7 @@ Major bugs:
 
 Nice to have:
 
+* Detect doctype of document and ensure iframe document is the same?
 * Implement gotoPage()
 * Handle top-to-bottom text flow and mixed side-to-side/top-to-bottom content
 * Figure out how to render partial table with same cell sizes as full table

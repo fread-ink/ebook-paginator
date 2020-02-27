@@ -300,6 +300,10 @@ class Paginator {
     this.curPage = 0;
     this.pages = {};
 
+    // List of <style> elements injected using
+    // the .injectCSS or .injectCSSbyURI API
+    this.injectedCSS = [];
+
     // Create iframe container element
     this.containerElement = document.getElementById(containerID);
     this.iframeElement = createIframeContainer();
@@ -402,6 +406,8 @@ class Paginator {
     
     return result.css;
   }
+
+
   
   async loadCSS() {
     // handle <link rel="stylesheet" href="<uri>">
@@ -424,16 +430,56 @@ class Paginator {
         console.error(err);
         continue;
       }
-      this.injectCSS(css);
+      this._injectCSS(css);
     }
   }
 
-  injectCSS(css) {
+  async injectCSSByURI(uri, opts) {
+    var css;
+    css = await request(uri);
+    return this.injectCSS(css, opts);
+  }
+
+  async injectCSS(css, opts) {
+    opts = Object.assign({
+      order: 'after',
+      preprocess: true
+    }, opts || {});
+    
+    if(opts.preprocess) {
+      css = await this.processCSS(css);
+    }
+    var el = this._injectCSS(css, (opts.order === 'before'));
+    this.injectedCSS.push(el);
+    return el;
+  }
+
+  clearCSS(clearAll) {
+    var els;
+    if(clearAll) {
+      els = this.iDoc.querySelectorAll("head > link[rel=stylesheet], head > style");
+    } else {
+      els = this.injectedCSS;
+    }
+    
+    var el;
+    for(el of els) {
+      el.parentNode.removeChild(el);
+    }
+    this.injectedCSS = [];
+  }
+  
+  _injectCSS(css, before) {
     const style = this.iDoc.createElement('STYLE');
     style.type = "text/css";
     style.innerHTML = css;
     const head = this.iDoc.querySelector("head");
-    head.appendChild(style);
+    if(before) {
+      appendAsFirstChild(head, style);
+    } else {
+      head.appendChild(style);
+    }
+    return style;
   }
   
   // Make page overflow at top
@@ -1154,7 +1200,7 @@ class Paginator {
 
 
 
-function init() {
+async function init() {
 
   const pageID = 'page2';
   const chapterURI = 'moby_dick_chapter.html';
@@ -1166,12 +1212,15 @@ function init() {
     cacheForwardPagination: false
   });
 
-  paginator.load(chapterURI);
+  await paginator.load(chapterURI);
   
   window.setTop = paginator.setOverflowTop.bind(paginator);
   window.setBottom = paginator.setOverflowBottom.bind(paginator);
   window.getBookmark = paginator.getBookmark.bind(paginator);
   window.gotoBookmark = paginator.gotoBookmark.bind(paginator);
+
+//  paginator.injectCSSByURI('foo.css');
+//  paginator.injectCSS("p { color: red; }");
 }
 
 init();
