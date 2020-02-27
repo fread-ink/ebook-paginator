@@ -1,5 +1,5 @@
 
-if(require) {
+if(typeof require === 'function') {
   var postcss = require('postcss');
   var postcssEpub = require('postcss-epub');
 }
@@ -282,10 +282,12 @@ function createIframeContainer() {
 class Paginator {
 
   constructor(containerID, opts) {
-    this.opts = opts || {};
-    
-    this.opts.cacheForwardPagination = ((opts.cacheForwardPagination === undefined) ? true : opts.cacheForwardPagination);
-    this.opts.repeatTableHeader = ((opts.repeatTableHeader === undefined) ? false : opts.repeatTableHeader);
+    this.opts = Object.assign({
+      loadCSS: true,
+      preprocessCSS: true,
+      cacheForwardPagination: true,
+      repeatTableHeader: false
+    }, opts || {})
 
     // Does the page currently overflow elements at the top?
     // If this is false then the page overflows at the bottom
@@ -321,15 +323,18 @@ class Paginator {
       this.pageBottom = this.page.getBoundingClientRect().bottom;
       this.pageTop = this.page.getBoundingClientRect().top;
     }
-    
+
+    // TODO for debugging
     document.body.addEventListener('keypress', this.onKeyPress.bind(this));
   }
 
   async load(chapterURI) {
     this.doc = await this.loadChapter(chapterURI);
-    
-    await this.loadCSS();
-    this.firstPage();    
+
+    if(this.opts.loadCSS) {
+      await this.loadCSS();
+    }
+    this.firstPage(); 
 
   }
   
@@ -387,19 +392,34 @@ class Paginator {
     return {node, target, depth, forceAvoidInside};
   }
 
+  async processCSS(css, uri) {
+    uri = uri || 'unnamed';
+    if(!this.opts.preprocessCSS || !postcss) {
+      return css;
+    }
+    var result = await postcss([postcssEpub])
+        .process(css, {from: uri, to: uri+'.out'});
+    
+    return result.css;
+  }
+  
   async loadCSS() {
-    var els = this.doc.querySelectorAll("head > link[rel=stylesheet]");
-    var el, uri, css, result;
+    // handle <link rel="stylesheet" href="<uri>">
+    // and <style> tags
+    var els = this.doc.querySelectorAll("head > link[rel=stylesheet], head > style");
+    var el, uri, css, type, result;
     for(el of els) {
-      uri = el.getAttribute('href');
-      if(!uri) continue;
       try {
-        css = await request(uri);
-        if(postcss) {
-          result = await postcss([postcssEpub])
-            .process(css, {from: uri, to: uri+'.out'});
-          css = result.css;
+        if(toLower(el.tagName) === 'link') {
+          if(el.getAttribute('disabled')) continue;
+          uri = el.getAttribute('href');
+          if(!uri) continue;
+          css = await request(uri);
+        } else { // <style> tags
+          css = el.innerHTML;
         }
+        css = await this.processCSS(css, uri);
+        
       } catch(err) {
         console.error(err);
         continue;

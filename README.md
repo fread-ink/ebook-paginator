@@ -20,14 +20,20 @@ Currently doesn't take into account page resizing, scrolling or font size change
 Create an element (e.g. a <div>) with a specified height where you want the content to appear, then:
 
 ```
-const paginator = new Paginator(pageID, contentURI, opts);
+const paginator = new Paginator(pageID, opts);
+await paginator.load(contentURI);
+
 ```
 
-Where `pageID` is the `id=` of the element and `contentURI` is the URI of an HTML document you want to show, one page at a time, inside your `pageID` element.
+Where `pageID` is the `id=` of the element and `contentURI` is the URI of an HTML document you want to show one page at a time inside your `pageID` element.
 
 ## Constructor options
 
-`cacheForwardPagination`: If this is true then the point at which page breaks happened during forward pagination is cached and re-used when backward paginating to the same pages. This is nice because backward pagination does not always result in page breaks in the same locations as forward pagination (due to CSS rules like break-before) but it may feel odd to the user if moving forward one page, and then back one page, gives a different result. By enabling caching, the pages will be paginated the same. Note that backwards pagination is never cached/re-used, only forward pagination. This option has no effect if a location was arrived at by means other than forward paginating to the page (e.g. using a bookmark) since then no pagination results have been prevously cached. If this option is false then pagination is always re-calculated. This cache should be invalidated when e.g. font size or page size is changed `.redraw(true)`. Default value is true. 
+`loadCSS`: If this is true then CSS referenced by `<link rel="stylesheet" href="<uri>">` and from inside `<style type="text/css">` tags in the source document is added to the rendered document. Default value for this option is true.
+
+`preprocessCSS`: NOT YET FULLY IMPLEMENTED. If this is true then all CSS from the source document is pre-processed to enhance compatibility with epub-specific CSS rules. Since many of the `-epub-<something>` CSS rules are available in modern browsers but without the `-epub-` prefix, this option causes all `-epub-<something>` CSS rules are repeated without the `-epub-` prefix. Default value for this option is true. Only has an effect if the `postcss` library was available when the bundle was generated. Note enabling this option increases memory usage. See the "Memory usage" section for more info.
+
+`cacheForwardPagination`: If this is true then the point at which page breaks happened during forward pagination are cached and re-used when backward paginating to the same pages. This is nice because backward pagination does not always result in page breaks in the same locations as forward pagination (due to CSS rules like break-before) but it may feel odd to the user if moving forward one page and then back one page gives a different result. By enabling caching the pages will be paginated the same. Note that backwards pagination is never cached/re-used, only forward pagination. This option has no effect if a location was arrived at by means other than forward paginating to the page (e.g. using a bookmark) since then no pagination results have been prevously cached. If this option is false then pagination is always re-calculated. This cache should be invalidated when e.g. font size or page size is changed using `.redraw(true)`. Default value for this option is true. 
 
 ## nextPage()
 
@@ -124,7 +130,6 @@ Using browserify vs. plain js with no build tool (and no require) had no measura
 
 Important:
 
-* Copy CSS into iframe document and wait for it to load
 * Also copy meta tags and inline styles into iframe document
 * Add option to inject CSS (by URI)
 * Detect doctype of document and ensure iframe document is the same?
