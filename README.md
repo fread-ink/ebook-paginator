@@ -112,10 +112,17 @@ If you don't need speed or low memory consumption then take a look at:
 * [Paged.js](https://gitlab.pagedmedia.org/tools/pagedjs) - CSS polyfill for paged (print) media
 * [Vivliostyle](https://github.com/vivliostyle/vivliostyle) - A very feature-complete in-browser e-book reader
 
+# Memory usage
+
+Since this library was written with the fread.ink UI in mind, which uses WebKit, here are some results of brief tests on WebKit.
+
+Using browserify vs. plain js with no build tool (and no require) had no measurable impact on memory usage.
+
+`require`ing both `postcss` and `postcss-epub` and processing a single CSS file before injecting it took ~2.5 MB extra ram for a tiny 60 byte CSS file and 11 MB extra for a fairly chunky 80 kB CSS file (unusually large for an ebook). Hopefully most of the ram above 2.5 MB will be reclaimed by the garbage collector. Splitting the 80 kB CSS file into three files had no significant impact on memory usage.
+
 # ToDo
 
 Important:
-
 
 * Copy CSS into iframe document and wait for it to load
 * Also copy meta tags and inline styles into iframe document
@@ -131,6 +138,7 @@ Nice to have:
 
 * Implement gotoPage()
 * Handle top-to-bottom text flow and mixed side-to-side/top-to-bottom content
+* Figure out how to render partial table with same cell sizes as full table
 * Add pageCount function
 * Add option to auto-recalc on browser resize or font size changes
 * Add support for at least the 'truthy' values for `break-after`

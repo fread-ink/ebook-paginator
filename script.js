@@ -1,3 +1,9 @@
+
+if(require) {
+  var postcss = require('postcss');
+  var postcssEpub = require('postcss-epub');
+}
+
 const breakAvoidVals = ['avoid', 'avoid-page'];
 const breakForceVals = ['always', 'all', 'page', 'left', 'right', 'recto', 'verso'];
 
@@ -54,11 +60,11 @@ async function wait(func, delay) {
   });
 }
 
-async function waitForImage(img) {
-  if(img.complete) return true;
+async function waitForElementLoad(el) {
+  if(el.complete) return true;
   return new Promise(function(cb) {
-		img.onload = cb;
-    img.onerror = cb;
+		el.onload = cb;
+    el.onerror = cb;
   });  
 }
 
@@ -89,24 +95,18 @@ function parseHTML(str) {
   return parseDOM(str, 'text/html');
 }
 
-function request(uri, isBinary, cb) {
+async function request(uri, isBinary) {
   var req = new Request(uri);
-  fetch(req).then(function(resp) {
-    if(!resp.ok || resp.status < 200 || resp.status > 299) {
-      return cb(new Error("Failed to get: " + uri));
-    }
+  var resp = await fetch(req);
+  if(!resp.ok || resp.status < 200 || resp.status > 299) {
+    throw new Error("Failed to get: " + uri);
+  }
       
-    if(isBinary) {
-      resp.blob().then(function(blob) {
-        cb(null, blob);
-      });
-    } else {
-      resp.text().then(function(text) {
-        cb(null, text);
-      });
-    }
-
-  });
+  if(isBinary) {
+    return await resp.blob();
+  } else {
+    return await resp.text();
+  }
 }
 
 // Traverse recursively to next node in a DOM tree
@@ -281,7 +281,7 @@ function createIframeContainer() {
 
 class Paginator {
 
-  constructor(containerID, chapterURI, opts) {
+  constructor(containerID, opts) {
     this.opts = opts || {};
     
     this.opts.cacheForwardPagination = ((opts.cacheForwardPagination === undefined) ? true : opts.cacheForwardPagination);
@@ -309,7 +309,6 @@ class Paginator {
     this.iDoc.write(iframeHTML);
     this.iDoc.close();
 
-    //    this.page = this.iDoc.getElementById('page');
     this.page = this.iDoc.body;
     
     this.setOverflowBottom();
@@ -324,22 +323,23 @@ class Paginator {
     }
     
     document.body.addEventListener('keypress', this.onKeyPress.bind(this));
-
-    this.loadChapter(chapterURI, function(err) {
-      if(err) return console.error(err);
-
-      this.firstPage();
-
-    }.bind(this));
   }
 
+  async load(chapterURI) {
+    this.doc = await this.loadChapter(chapterURI);
+    
+    await this.loadCSS();
+    this.firstPage();    
+
+  }
+  
   // Traverse recursively to previous node in a DOM tree
   // and copy it to the equivalent location in the target DOM tree
   // if it doesn't already exist, while tracking tree depth.
   // Shallow copy is preferred when possible, but is not always
   // viable while traversing in reverse order
   // since a node should never be added without its ancestor nodes
-  _appendPrevNode(node, target, depth) {
+  appendPrevNode(node, target, depth) {
     var tmp;
     var forceAvoidInside;
     
@@ -385,6 +385,35 @@ class Paginator {
     if(!node) return {}; // no more pages
     
     return {node, target, depth, forceAvoidInside};
+  }
+
+  async loadCSS() {
+    var els = this.doc.querySelectorAll("head > link[rel=stylesheet]");
+    var el, uri, css, result;
+    for(el of els) {
+      uri = el.getAttribute('href');
+      if(!uri) continue;
+      try {
+        css = await request(uri);
+        if(postcss) {
+          result = await postcss([postcssEpub])
+            .process(css, {from: uri, to: uri+'.out'});
+          css = result.css;
+        }
+      } catch(err) {
+        console.error(err);
+        continue;
+      }
+      this.injectCSS(css);
+    }
+  }
+
+  injectCSS(css) {
+    const style = this.iDoc.createElement('STYLE');
+    style.type = "text/css";
+    style.innerHTML = css;
+    const head = this.iDoc.querySelector("head");
+    head.appendChild(style);
   }
   
   // Make page overflow at top
@@ -434,7 +463,7 @@ class Paginator {
     if(topOverflow) {
       // If it's an image, wait for it to load
       if(toLower(node.tagName) === 'img') {
-        await waitForImage(node);
+        await waitForElementLoad(node);
       }
 
       if(this.page.getBoundingClientRect().top < 0) {
@@ -447,7 +476,7 @@ class Paginator {
 
       // If it's an image, wait for it to load
       if(toLower(node.tagName) === 'img') {
-        await waitForImage(node);
+        await waitForElementLoad(node);
       }
       
       rect = node.getBoundingClientRect();
@@ -533,7 +562,7 @@ class Paginator {
     return null;
   }
 
-  // Must match the way prev _appendPrevNode() traverses
+  // Must match the way prev appendPrevNode() traverses
   getPrevNode(node) {
     // Don't proceed past body element in source document
     if(toLower(node.tagName) === 'body') return node;
@@ -920,7 +949,7 @@ class Paginator {
         ({node, target, depth} = appendNextNode(node, target, depth));
         
       } else {
-        ({node, target, depth, forceAvoidInside} = this._appendPrevNode(node, target, depth));
+        ({node, target, depth, forceAvoidInside} = this.appendPrevNode(node, target, depth));
       }
 
       if(!node || !target) {
@@ -1043,11 +1072,7 @@ class Paginator {
 
       // TODO run this with nextTick e.g. every 200 ms
       // so the browser tab doesn't feel unresponsive to the user
-//      if(reverse) {
-//        return await waitForPress(appendNode);
-//      } else {
       return await appendNode();
-//      } 
     }
 
     return await appendNode();
@@ -1101,22 +1126,9 @@ class Paginator {
     return this.nodeCount;
   }
   
-  loadChapter(uri, cb) {
-
-    request(uri, false, function(err, str) {
-      if(err) return cb(err);
-
-      try {
-        // TODO don't assume XHTML
-        this.doc = parseHTML(str);
-
-        cb();
-
-      } catch(err) {
-        return cb(err);
-      }
-
-    }.bind(this));
+  async loadChapter(uri) {
+    var str = await request(uri, false);
+    return parseHTML(str);
   }
 }
 
@@ -1128,12 +1140,14 @@ function init() {
   const chapterURI = 'moby_dick_chapter.html';
 //  const chapterURI = 'vertical.html';
   
-  const paginator = new Paginator(pageID, chapterURI, {
+  const paginator = new Paginator(pageID, {
     columnLayout: false,
     repeatTableHeader: false,
     cacheForwardPagination: false
   });
 
+  paginator.load(chapterURI);
+  
   window.setTop = paginator.setOverflowTop.bind(paginator);
   window.setBottom = paginator.setOverflowBottom.bind(paginator);
   window.getBookmark = paginator.getBookmark.bind(paginator);
