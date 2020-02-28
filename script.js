@@ -1268,10 +1268,12 @@ class Paginator {
 async function init() {
 
   const pageID = 'page2';
-//  const chapterURI = 'bar.xhtml';
-  const chapterURI = 'baz.html';
-//  const chapterURI = 'moby_dick_chapter.html';
-//  const chapterURI = 'vertical.html';
+  
+//  const chapterURI = 'test/iso-8859-2.xhtml';
+//  const chapterURI = 'test/windows-1251.html';
+  
+  const chapterURI = 'moby_dick_chapter.html';
+
 
   const paginator = new Paginator(pageID, {
     columnLayout: false,

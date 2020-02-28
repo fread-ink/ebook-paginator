@@ -158,6 +158,7 @@ Using browserify vs. plain js with no build tool (and no require) had no measura
 Important:
 
 * Also copy relevant meta tags (e.g. language) from source document
+* Write appropriate postcss plugin
 * Turn this into a proper npm module
 * Unit tests
 
