@@ -137,21 +137,6 @@ Another way is to parse the source HTML with the browser's built-in DOM parser, 
 
 There are two sub-types of this last method: One where overflow is checked using column-based layout as in the previously described method and one where overflow checked without resorting to column layout. The first sub-type is used by the [Paged.js](https://gitlab.pagedmedia.org/tools/pagedjs) paged media polyfill but this solution again suffers poor performance on WebKit. The second sub-type it employed by this library.
 
-## Encoding weirdness
-
-You might be wondering why this library has a bunch of code is to deal with character encoding. Doesn't the browser automatically handle encodings? All we're doing is loading and displaying an html file right?
-
-Well, the DOMParser.parseFromString() function has some major issues.
-
-* It does not auto-detect if the document is HTML or XHTML
-* It does not detect character encoding and only supports UTF-8 input
-
-If loading an html or xhtml file using e.g. the fetch() API and then parsing it using DOMParser, you will have to first figure out if you have an HTML or XHTML file, then manually figure out the encoding of the file and finally convert from that encoding to UTF-8 before finally handing the data to DOMParser.parseFromString().
-
-The other option is to load the HTML/XHTML file into a hidden <iframe> which will auto-detect the encoding, but this will cause any referenced external resources like CSS and images to be loaded as well, when all you wanted to do was detect the encoding. Trying to be clever and first loading into DOMParser, removing <body> and <script> tags, then writing the mangled document to a hidden iframe _doesn't work either_ because apparently iframes don't detect encoding unless the content comes from an actual URI/file. Even setting an iframe's .src attribute to a data URI which encodes a an html file with a properly specified character encoding does nothing.
-
-The above is true for at least Firefox, WebKit and Chrome as of February 2020.
-
 # Other content paginators
 
 If you don't need speed or low memory consumption then take a look at:
@@ -172,7 +157,7 @@ Using browserify vs. plain js with no build tool (and no require) had no measura
 
 Important:
 
-* Also copy meta tags and other language/encoding tags into iframe document
+* Also copy relevant meta tags (e.g. language) from source document
 * Turn this into a proper npm module
 * Unit tests
 
@@ -182,7 +167,6 @@ Major bugs:
 
 Nice to have:
 
-* Support non-UTF8 encodings (https://www.npmjs.com/package/iconv-lite)
 * Handle top-to-bottom text flow and mixed side-to-side/top-to-bottom content
 * Maybe disable scripts from running and enable same-origin-policy while adding content, then when done adding content disable same-origin-policy before enabling scripts to run (if opts.allowScripts is true)
 * Add option to re-load <script> tags outside <body> after each pagination run (remove the elements before paginating, then re-add them after). Maybe figure out how to fake a document loaded event after each pagination as well?

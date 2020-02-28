@@ -93,113 +93,6 @@ function parseDOM(str, mimetype) {
   return doc;
 }
 
-
-function getXMLDocEncoding(doc, firstChild) {
-  // If the document has xml header like:
-  // <?xml version="1.0" encoding="ISO-8859-2"?>
-  // then this always overrides any
-  // <meta charset="utf-8"/> or <meta content="text/html; charset=utf-8"/>
-  // This is true in firefox, webkit and chrome
-
-  // As of February 2020 this works in WebKit and Chrome
-  if(doc.xmlEncoding) {
-    return doc.xmlEncoding;
-  }
-
-  // For some reason firefox decided to remove Document.xmlEncoding
-  // which is the only way to do this without manual parsing:
-  // https://developer.mozilla.org/en-US/docs/Web/API/Document/xmlEncoding
-  // Now there seems to be no way to detect XML encoding
-  // other than manually parsing the <?xml> tag
-
-  if(!firstChild.textContent) return undefined;
-  const m = firstChild.textContent.match(/\?xml[^\?]+encoding=['"]([^'"]+)['"]/);
-  if(m && m.length > 1) {
-    return m[1];
-  }
-  
-  return undefined;
-}
-
-// Unfortunately neither document.characterSet
-// nor document.inputEncoding are set correctly
-// on a Document or XMLDocument created by DOMParser
-// so we have to do it manually
-function getDocEncoding(doc, firstChild) {
-  var encoding;
-  if(doc instanceof XMLDocument) {
-    encoding = getXMLDocEncoding(doc, firstChild);
-    if(encoding) return encoding;
-  }
-
-  var r = new RegExp(/charset\=([^;\s]+)/i);
-  
-  var els = doc.querySelectorAll("head > meta[charset], head > meta[content]");
-  var el, attr, m;
-  for(el of els) {
-
-    // <meta http-equiv="Content-Type" content="text/xhtml; charset=utf-8"/>
-    attr = el.getAttribute('content');
-    if(attr) {
-      m = attr.match(r);
-      if(m && m.length > 1) {
-        encoding = m[1];
-      }
-    }
-    
-    // <meta charset="utf-8"/>      
-    attr = el.getAttribute('charset');
-    if(attr) {
-      encoding = attr;
-    }
-  }
-
-  return encoding || 'utf-8';
-}
-
-function isXHTML(doc) {
-  if(doc.querySelector('html').getAttribute('xmlns')) {
-    return true;
-  }
-  return false;
-}
-
-// Takes an arrayBuffer
-// and returns a parsed Document or XMLDocument (autodetected)
-// converted to utf-8 from whatever the native encoding was
-async function parseHTML(arrayBuffer) {
-  var firstChild;
-
-  // Assume UTF-8 until we know different
-  const utf8Decoder = new TextDecoder('utf-8');
-  var str = utf8Decoder.decode(arrayBuffer);
-  
-  var doc = parseDOM(str, 'text/html');
-
-  // If it's XHTML then re-parse with correct mime-type
-  const isX = isXHTML(doc);
-  if(isX) {
-    firstChild = doc.firstChild;
-    doc = parseDOM(str, 'application/xhtml+xml');
-  }
-
-  // Detect encoding
-  const encoding = getDocEncoding(doc, firstChild);
-  
-  if(encoding.toLowerCase() !== 'utf-8') {
-    const decoder = new TextDecoder(encoding);
-
-    str = decoder.decode(arrayBuffer);
-    if(isX) {
-      doc = parseDOM(str, 'application/xhtml+xml');
-    } else {
-      doc = parseDOM(str, 'text/html');
-    }
-  }
-
-  return {doc, encoding: encoding};
-}
-
 // type is 'blob', 'text', 'json' or 'arrayBuffer'
 // default type is 'text'
 async function request(uri, type) {
@@ -212,8 +105,33 @@ async function request(uri, type) {
   if(!type) return await resp.text();
   
   return await resp[type]();
-  
 }
+
+async function requestHTML(uri) {  
+  return new Promise((resolve, reject) => {
+    
+    var xhr = new XMLHttpRequest;
+    xhr.responseType = 'document';
+    xhr.open('GET', uri);
+    
+    xhr.onload = function() {
+      if(xhr.readyState === xhr.DONE) {
+        if(xhr.status < 200 || xhr.status >= 300) {
+          reject(new Error("Failed to get: " + uri));
+          return;
+        }
+        resolve(xhr.responseXML);
+      }
+    }
+    xhr.onerror = function() {
+      reject(new Error("Failed to get: " + uri));
+    }
+    
+    xhr.send();
+  });
+}
+
+
 
 // Traverse recursively to next node in a DOM tree
 // and shallow-copy it to the equivalent location in the target DOM tree
@@ -449,10 +367,13 @@ class Paginator {
   }
 
   async load(chapterURI) {
-    let {doc, encoding} = await this.loadChapter(chapterURI);
+    this.doc = await this.loadChapter(chapterURI);
     
-    this.doc = doc;
-    this.encoding = encoding;
+    // WebKit does not detect encoding correctly
+    // and seems to simply convert encoding to the primary document's encoding
+    this.encoding = this.doc.characterSet;
+    this.isXML = (this.doc instanceof XMLDocument);
+
     
     if(this.opts.loadCSS) {
       await this.loadCSS();
@@ -1339,21 +1260,19 @@ class Paginator {
   }
   
   async loadChapter(uri) {
-    var resp = await request(uri, 'arrayBuffer');
-    return await parseHTML(resp);
+    return await requestHTML(uri);
   }
 }
-
 
 
 async function init() {
 
   const pageID = 'page2';
 //  const chapterURI = 'bar.xhtml';
-//  const chapterURI = 'baz.html';
-  const chapterURI = 'moby_dick_chapter.html';
+  const chapterURI = 'baz.html';
+//  const chapterURI = 'moby_dick_chapter.html';
 //  const chapterURI = 'vertical.html';
-  
+
   const paginator = new Paginator(pageID, {
     columnLayout: false,
     repeatTableHeader: false,
