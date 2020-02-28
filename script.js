@@ -112,7 +112,6 @@ function getXMLDocEncoding(doc, firstChild) {
   // Now there seems to be no way to detect XML encoding
   // other than manually parsing the <?xml> tag
 
-  console.log(firstChild.textContent);
   if(!firstChild.textContent) return undefined;
   const m = firstChild.textContent.match(/\?xml[^\?]+encoding=['"]([^'"]+)['"]/);
   if(m && m.length > 1) {
@@ -180,7 +179,6 @@ async function parseHTML(arrayBuffer) {
   // If it's XHTML then re-parse with correct mime-type
   const isX = isXHTML(doc);
   if(isX) {
-    console.log("XHTML detected");
     firstChild = doc.firstChild;
     doc = parseDOM(str, 'application/xhtml+xml');
   }
@@ -1352,8 +1350,8 @@ async function init() {
 
   const pageID = 'page2';
 //  const chapterURI = 'bar.xhtml';
-  const chapterURI = 'baz.html';
-//  const chapterURI = 'moby_dick_chapter.html';
+//  const chapterURI = 'baz.html';
+  const chapterURI = 'moby_dick_chapter.html';
 //  const chapterURI = 'vertical.html';
   
   const paginator = new Paginator(pageID, {
