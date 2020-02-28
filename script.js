@@ -92,7 +92,8 @@ function parseDOM(str, mimetype) {
 }
 
 function parseHTML(str) {
-  return parseDOM(str, 'text/html');
+//  return parseDOM(str, 'text/html');
+  return parseDOM(str, 'application/xml');
 }
 
 async function request(uri, isBinary) {
@@ -130,11 +131,12 @@ function appendNextNode(node, target, depth) {
     
 	} else {
 
-    // Don't proceed past body element in source document
-    if(toLower(node.tagName) === 'body') return {};
-    
 		while(node) {
 			node = node.parentNode;
+      
+      // Don't proceed past body element in source document
+      if(toLower(node.tagName) === 'body') return {};
+      
       target = target.parentNode;
       depth--;
 
@@ -261,9 +263,15 @@ function nextNode(node) {
 }
 
 
-function createIframeContainer() {
+function createIframeContainer(allowScripts) {
 
   var iframeElement = document.createElement('iframe');
+  iframeElement.sandbox = "allow-same-origin";
+  
+  if(allowScripts) {
+    iframeElement.sandbox += " allow-scripts";
+  }
+  
   iframeElement.src = "about:blank";
   iframeElement.scrolling = 'no';
   iframeElement.style.position = 'absolute';
@@ -283,6 +291,7 @@ class Paginator {
 
   constructor(containerID, opts) {
     this.opts = Object.assign({
+      loadScripts: false,
       loadCSS: true,
       preprocessCSS: true,
       cacheForwardPagination: true,
@@ -306,7 +315,7 @@ class Paginator {
 
     // Create iframe container element
     this.containerElement = document.getElementById(containerID);
-    this.iframeElement = createIframeContainer();
+    this.iframeElement = createIframeContainer(this.opts.loadScripts);
     this.containerElement.appendChild(this.iframeElement);
 
     // Add HTML to iframe document
@@ -335,10 +344,27 @@ class Paginator {
   async load(chapterURI) {
     this.doc = await this.loadChapter(chapterURI);
 
+    var el = this.doc.querySelector('html');
+    //    console.log(el.getAttribute('xml:lang'));
+    console.log("source encoding:", this.doc.characterSet);
+    
     if(this.opts.loadCSS) {
       await this.loadCSS();
     }
-    this.firstPage(); 
+
+    if(this.opts.loadScripts) {
+      this.loadScripts();
+    }
+    
+    await this.firstPage(); 
+    console.log("target encoding:", this.iDoc.characterSet);
+  }
+
+  getDocumentLanguage() {
+
+  }
+
+  getDocumentEncoding() {
 
   }
   
@@ -407,8 +433,6 @@ class Paginator {
     return result.css;
   }
 
-
-  
   async loadCSS() {
     // handle <link rel="stylesheet" href="<uri>">
     // and <style> tags
@@ -434,6 +458,24 @@ class Paginator {
     }
   }
 
+  cloneElements(target, els) {
+    var el, tmp;
+    for(el of els) {
+      tmp = el.cloneNode(true);
+      target.appendChild(tmp);
+    }
+  }
+  
+  loadScripts() {
+    const head = this.iDoc.querySelector("head");
+    var els = this.doc.querySelectorAll("head > script");
+    this.cloneElements(head, els);
+
+    const html = this.iDoc.querySelector("html");
+    var els = this.doc.querySelectorAll("html > script");
+    this.cloneElements(html, els);
+  }
+  
   async injectCSSByURI(uri, opts) {
     var css;
     css = await request(uri);
@@ -1001,7 +1043,6 @@ class Paginator {
 
     const appendNode = async (cb) => {
       var forceAvoidInside, traversed;
-      
       // If the page number changes while we are paginating
       // then stop paginating immediately
       if(curPage !== this.curPage) {
@@ -1203,13 +1244,15 @@ class Paginator {
 async function init() {
 
   const pageID = 'page2';
-  const chapterURI = 'moby_dick_chapter.html';
+  const chapterURI = 'bar.xhtml';
+//  const chapterURI = 'moby_dick_chapter.html';
 //  const chapterURI = 'vertical.html';
   
   const paginator = new Paginator(pageID, {
     columnLayout: false,
     repeatTableHeader: false,
-    cacheForwardPagination: false
+    cacheForwardPagination: false,
+    loadScripts: true
   });
 
   await paginator.load(chapterURI);

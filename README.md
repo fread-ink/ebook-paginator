@@ -31,6 +31,8 @@ Where `pageID` is the `id=` of the element and `contentURI` is the URI of an HTM
 
 `loadCSS`: If this is true then CSS referenced by `<link rel="stylesheet" href="<uri>">` and from inside `<style type="text/css">` tags in the source document is added to the rendered document. Default value for this option is true.
 
+`loadScripts`: If true, allow `<script>` content from the source document to run.
+
 `preprocessCSS`: NOT YET FULLY IMPLEMENTED. If this is true then all CSS from the source document is pre-processed to enhance compatibility with epub-specific CSS rules. Since many of the `-epub-<something>` CSS rules are available in modern browsers but without the `-epub-` prefix, this option causes all `-epub-<something>` CSS rules are repeated without the `-epub-` prefix. Default value for this option is true. Only has an effect if the `postcss` library was available when the bundle was generated. Note enabling this option increases memory usage. See the "Memory usage" section for more info.
 
 `cacheForwardPagination`: If this is true then the point at which page breaks happened during forward pagination are cached and re-used when backward paginating to the same pages. This is nice because backward pagination does not always result in page breaks in the same locations as forward pagination (due to CSS rules like break-before) but it may feel odd to the user if moving forward one page and then back one page gives a different result. By enabling caching the pages will be paginated the same. Note that backwards pagination is never cached/re-used, only forward pagination. This option has no effect if a location was arrived at by means other than forward paginating to the page (e.g. using a bookmark) since then no pagination results have been prevously cached. If this option is false then pagination is always re-calculated. This cache should be invalidated when e.g. font size or page size is changed using `.redraw(true)`. Default value for this option is true. 
@@ -153,8 +155,8 @@ Using browserify vs. plain js with no build tool (and no require) had no measura
 
 Important:
 
-* Also copy meta tags and inline styles into iframe document
-* Add option to inject CSS (by URI)
+* Also copy meta tags and other language/encoding tags into iframe document
+* Turn this into a proper npm module
 * Unit tests
 
 Major bugs:
@@ -163,9 +165,11 @@ Major bugs:
 
 Nice to have:
 
+* Handle top-to-bottom text flow and mixed side-to-side/top-to-bottom content
+* Maybe disable scripts from running and enable same-origin-policy while adding content, then when done adding content disable same-origin-policy before enabling scripts to run (if opts.allowScripts is true)
+* Add option to re-load <script> tags outside <body> after each pagination run (remove the elements before paginating, then re-add them after). Maybe figure out how to fake a document loaded event after each pagination as well?
 * Detect doctype of document and ensure iframe document is the same?
 * Implement gotoPage()
-* Handle top-to-bottom text flow and mixed side-to-side/top-to-bottom content
 * Figure out how to render partial table with same cell sizes as full table
 * Add pageCount function
 * Add option to auto-recalc on browser resize or font size changes
