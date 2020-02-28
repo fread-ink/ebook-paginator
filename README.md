@@ -165,6 +165,7 @@ Major bugs:
 
 Nice to have:
 
+* Support non-UTF8 encodings (https://www.npmjs.com/package/iconv-lite)
 * Handle top-to-bottom text flow and mixed side-to-side/top-to-bottom content
 * Maybe disable scripts from running and enable same-origin-policy while adding content, then when done adding content disable same-origin-policy before enabling scripts to run (if opts.allowScripts is true)
 * Add option to re-load <script> tags outside <body> after each pagination run (remove the elements before paginating, then re-add them after). Maybe figure out how to fake a document loaded event after each pagination as well?
