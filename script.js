@@ -973,9 +973,42 @@ class Paginator {
   async gotoPage(pageNumber) {
     // TODO
   }
+
+  async processQueue() {
+    if(!this.queuedAction) return;
+
+    const action = this.queuedAction;
+    this.queuedAction = null;
+    
+    switch(action) {
+      
+    case 'first':
+      await this.firstPage();
+      break;
+    case 'next':
+      await this.nextPage();
+      break;
+    case 'prev':
+      await this.prevPage();
+      break;
+    case 'redraw':
+      await this.redraw();
+      break;
+    }
+  }
+
+  async queue(action) {
+    // Only queue one action at a time
+    this.queuedAction = action;
+  }
   
   async firstPage() {
-
+    if(this.paginating) {
+      if(!this.queuedAction) this.queue('first');
+      return;
+    }
+    this.paginating = true;
+    
     this.pages[0] = {
       node: this.doc.body,
       offset: 0
@@ -983,32 +1016,58 @@ class Paginator {
     this.curPage = 0;;
     
     const nextPageStartRef = await this.paginate(this.doc.body, 0);
-    if(!nextPageStartRef || !nextPageStartRef.node) return false;
+    if(!nextPageStartRef || !nextPageStartRef.node) {
+      this.paginating = false
+      return false;
+    }
 
     this.pages[this.curPage+1] = nextPageStartRef;
     
-    return true;
+    this.paginating = false    
+    await this.processQueue();
   }
   
   async nextPage() {
-   
+    if(this.paginating) {
+      if(!this.queuedAction) this.queue('next');
+      console.log("Queued");
+      return;
+    }
+    this.paginating = true;
+    
     this.curPage++;
     const curPageStartRef = this.pages[this.curPage];
 
-    if(!curPageStartRef || !curPageStartRef.node) return false; // no more pages
+    if(!curPageStartRef || !curPageStartRef.node) {
+      this.paginating = false;
+      return false; // no more pages
+    }
 
     const nextPageStartRef = await this.paginate(curPageStartRef.node, curPageStartRef.offset)
     
-    if(!nextPageStartRef || !nextPageStartRef.node) return false; // no more pages
+    if(!nextPageStartRef || !nextPageStartRef.node) {
+      this.paginating = false;
+      return false; // no more pages
+    }
 
     this.pages[this.curPage+1] = nextPageStartRef;
-    
-    return this.curPage;
+
+    this.paginating = false;
+    await this.processQueue();
   }
 
   async prevPage() {
+    if(this.paginating) {
+      if(!this.queuedAction) this.queue('prev');
+      return;
+    }
+    this.paginating = true;
+    
     const curPageStartRef = this.pages[this.curPage];
-    if(!curPageStartRef || !curPageStartRef.node) return false;
+    if(!curPageStartRef || !curPageStartRef.node) {
+      this.paginating = false;
+      return false;
+    }
 
     // don't paginate back before body
     if(curPageStartRef.node == this.doc.body) {
@@ -1034,7 +1093,9 @@ class Paginator {
       if(!prevPageStartRef || !prevPageStartRef.node) {
         // no more pages
         this.curPage = 0;
-        return await this.firstPage();
+        this.paginating = false;
+        await this.firstPage();
+        return;
       }
       
       this.pages[this.curPage] = prevPageStartRef;
@@ -1044,18 +1105,31 @@ class Paginator {
       // Paginate using the previously cached page start location
       prevPageStartRef = await this.paginate(prevPageStartRef.node, prevPageStartRef.offset)
     }
-    
-    return this.curPage;
+
+    this.paginating = false;
+    await this.processQueue();
   }
 
   async redraw(doInvalidateCache) {
+    if(this.paginating) {
+      if(!this.queuedAction) this.queue('redraw');
+      return;
+    }
+    this.paginating = true;
+    
     if(doInvalidateCache) {
       this.invalidateCache()
     };
     const curPageRef = this.pages[this.curPage];
-    if(!curPageRef || !curPageRef.node) return false;
+    if(!curPageRef || !curPageRef.node) {
+      this.paginating = false;
+      return false;
+    }
 
     const nextPageRef = await this.paginate(curPageRef.node, curPageRef.offset);
+
+    this.paginating = false;
+    await this.processQueue();
   }
 
   // invalidate all but the reference to the start of the current page
@@ -1170,11 +1244,6 @@ class Paginator {
 
     const appendNode = async (cb) => {
       var forceAvoidInside, traversed;
-      // If the page number changes while we are paginating
-      // then stop paginating immediately
-      if(curPage !== this.curPage) {
-        return null;
-      }
       
       // Get the next/prev node in the source document in order recursively
       // and shallow copy the node to the corresponding spot in

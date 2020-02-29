@@ -171,10 +171,6 @@ Using browserify vs. plain js with no build tool (and no require) had no measura
 
 # ToDo
 
-Major bugs:
-
-* Trying to paginate to next page during load (waiting for img) stops pagination
-
 Important:
 
 * Turn this into a proper npm module
