@@ -1030,7 +1030,6 @@ class Paginator {
   async nextPage() {
     if(this.paginating) {
       if(!this.queuedAction) this.queue('next');
-      console.log("Queued");
       return;
     }
     this.paginating = true;
@@ -1450,30 +1449,4 @@ class Paginator {
 }
 
 
-async function init() {
-
-  const pageID = 'page2';
-  //  const chapterURI = 'test/encoding_detect_fail.html';
-  const chapterURI = 'moby_dick_chapter.xhtml';
-
-  const paginator = new Paginator(pageID, {
-    columnLayout: false,
-    repeatTableHeader: false,
-    cacheForwardPagination: false,
-    loadScripts: true,
-    detectEncoding: true,
-    preprocessCSS: true
-  });
-
-  await paginator.load(chapterURI);
-  
-  window.setTop = paginator.setOverflowTop.bind(paginator);
-  window.setBottom = paginator.setOverflowBottom.bind(paginator);
-  window.getBookmark = paginator.getBookmark.bind(paginator);
-  window.gotoBookmark = paginator.gotoBookmark.bind(paginator);
-
-//  paginator.injectCSSByURI('foo.css');
-//  paginator.injectCSS("p { color: red; }");
-}
-
-init();
+module.exports = Paginator;

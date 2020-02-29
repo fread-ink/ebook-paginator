@@ -1,28 +1,17 @@
 
-Work-in-progress in-browser javascript library that consumes an HTML file and displays it one page at a time. This library focuses on fast performance (especially in WebKit) and low memory consumption (usable on systems with 256 MB ram).
+An in-browser javascript library that consumes an HTML file and displays it one page at a time. Useful for reading ebooks. This library focuses on fast performance (especially in WebKit) and low memory consumption (usable on systems with 256 MB ram).
 
-A (probably outdated) demo is [hosted here](https://juul.io/paginator-nice/).
+An example is in `example/`. Build it with `npm run build`. You need to host the code on a web server since browsers consider two files loaded from the filesystem to be from different domains and thus does not allow accessing the sample ebook chapter html file.
 
-Pressing `space` progresses to the next page or `b` for previous. You can also press `t` to start a synchronous test to calculate the page boundaries. Open the console to see the timing measurement.
-
-Here are the pagination times for a 400 page document for various browsers done on an i5-2520M CPU @ 2.50GHz:
-
-* Chromium 78: 1.0 seconds
-* Firefox 71: 2.1 seconds
-* Epiphany (WebKit2GTK): 2.5 seconds
-
-You need to host the code on a web server since browsers consider two files loaded from the filesystem to be from different domains and thus does not allow accessing the sample ebook chapter html file.
-
-Currently doesn't take into account page resizing, scrolling or font size changes, so reload after changing any of that.
+The example doesn't take into account page resizing, scrolling or font size changes, so reload after changing any of that.
 
 # API
 
 Create an element (e.g. a <div>) with a specified height where you want the content to appear, then:
 
 ```
-const paginator = new Paginator(pageID, opts);
+const paginator = new Paginator(pageID, {});
 await paginator.load(contentURI);
-
 ```
 
 Where `pageID` is the `id=` of the element and `contentURI` is the URI of an HTML document you want to show one page at a time inside your `pageID` element.
@@ -31,7 +20,7 @@ Where `pageID` is the `id=` of the element and `contentURI` is the URI of an HTM
 
 `loadCSS`: If this is true then CSS referenced by `<link rel="stylesheet" href="<uri>">` and from inside `<style type="text/css">` tags in the source document is added to the rendered document. Default value for this option is true.
 
-`loadScripts`: If true, allow `<script>` content from the source document to run.
+`loadScripts`: If true, allow `<script>` content from the source document to run. Default value is false.
 
 `preprocessCSS`: If this is true then all CSS from the source document is pre-processed to enhance compatibility with epub-specific CSS rules. Since many of the `-epub-<something>` CSS rules are available in modern browsers but without the `-epub-` prefix, this option causes all `-epub-<something>` CSS rules to be repeated without the `-epub-` prefix. Default value for this option is true. Only has an effect if the `postcss` library was available when the bundle was generated. Note enabling this option increases memory usage. See the "Memory usage" section for more info.
 
@@ -65,7 +54,7 @@ Start paginating from the bookmarked location. Takes a bookmark object as argume
 
 ## async redraw()
 
-Re-render the currently shown page. Useful if the font or page size changes.
+Re-render the currently shown page. You should call this whenever the font size or page size changes.
 
 ## async injectCSS(css, opts)
 
@@ -80,7 +69,7 @@ Returns the generated `<style>` element.
 
 ## async injectCSSByURI(uri, opts)
 
-Same as `injectCSS()` but takes a `uri` to a CSS file.
+Same as `injectCSS()` but takes a URI to a CSS file.
 
 ## clearCSS(clearAll)
 
@@ -92,6 +81,9 @@ Remove all injected CSS elements. If `clearAll` is true, then remove _all_ CSS, 
 
 `columnLayout`: This feature hasn't been maintained recently and may not work as expected. Setting `opts.columnLayout` to `true` will cause the paginator to use a different method for calculating how much to put on each page. This method is based on setting the `column-width` CSS property. This will use the browser's built-in support for the CSS rules `break-inside`, `break-before` and `break-after` which is probably better than this library's support but will incur a serious performance penalty on WebKit (4-5x slower). See the "Page breaks" section.
 
+# Usage without npm
+
+If you don't need the CSS pre-processing then you don't need `npm` nor `browserify` or any build tool. You can simply load `script.js` directly in your browser.
 
 # Quirks and limitations
 
@@ -109,15 +101,7 @@ Currently the `break-inside` values of 'avoid' and 'avoid-page' are handled corr
 
 ## break-before / break-after
 
-Currently only `break-inside` with values of `avoid` or `avoid-page` and `break-before` with a values of 'always', 'all', 'page', 'left', 'right', 'recto' or 'verso' is handled by this library. All of the supported values for `break-before` are treated the same since currently only single-page pagination is supported. Not all of these values work in all browsers since they may be rejected by the browser's CSS parser if they are not recognized.
-
-(True as of Febrary 25th 2020) While `break-inside` can be used to avoid page breaks inside an element, `break-before` and `break-after` do nothing in firefox (not even when printing) but when set to 'column' then they do force a break when inside a column, but only on webkit and chrome. This works even when not printing. We could re-write the other similar values e.g. 'page', 'left', 'right', 'verso' and 'lefto' to 'column' and that would then work correctly in webkit.
-
-Using `break-before` or `break-after` with the value 'avoid', 'avoid-page', 'avoid-column' or 'avoid-region' does nothing in any of the browsers, not even when printing.
-
-Both of these are annoying to implement manually as they'd require us to backtrack if multiple successive elements have `break-*:avoid`.
-
-Webkit understands that `page-break-before:all` and `break-before:page` are aliases, so getting the computed style for `break-before` will work no matter which is set. Weirdly `break-before: column-avoid` isn't understood but setting `-webkit-column-break-before: avoid;` results in the value `avoid` when fetching the computed style for `break-before`. This is with WebKitGTK+ 2.26.2.
+Currently only `break-before` with a values of 'always', 'all', 'page', 'left', 'right', 'recto' or 'verso' is handled by this library. All of the supported values for `break-before` are treated the same since currently only single-page pagination is supported. Not all of these values work in all browsers since they may be rejected by the browser's CSS parser if they are not recognized.
 
 ## Backward pagination
 
@@ -153,17 +137,29 @@ If the `.detectEncoding` option is set then a manual detection method is used. T
 
 If nothing is found, UTF-8 is assumed.
 
+## break-inside, break-before and break-after
+
+Some notes on native browser support of these features. This was true as of Febrary 25th 2020.
+
+While `break-inside` can be used to avoid page breaks inside an element, `break-before` and `break-after` natively do nothing in firefox (not even when printing) but when set to 'column' then they do force a break when inside a column, but only on webkit and chrome. This works even when not printing. We could re-write the other similar values e.g. 'page', 'left', 'right', 'verso' and 'lefto' to 'column' and that would then work correctly in webkit.
+
+Using `break-before` or `break-after` with the value 'avoid', 'avoid-page', 'avoid-column' or 'avoid-region' does nothing in any of the browsers, not even when printing.
+
+Both of these are annoying to implement manually as they'd require us to backtrack if multiple successive elements have `break-*:avoid`.
+
+Webkit understands that `page-break-before:all` and `break-before:page` are aliases, so getting the computed style for `break-before` will work no matter which is set. Weirdly `break-before: column-avoid` isn't understood but setting `-webkit-column-break-before: avoid;` results in the value `avoid` when fetching the computed style for `break-before`. This is with WebKitGTK+ 2.26.2.
+
 # Other content paginators
 
 If you don't need speed or low memory consumption then take a look at:
 
 * [Epub.js](https://github.com/futurepress/epub.js) - In-browser e-book reader
-* [Paged.js](https://gitlab.pagedmedia.org/tools/pagedjs) - CSS polyfill for paged (print) media
 * [Vivliostyle](https://github.com/vivliostyle/vivliostyle) - A very feature-complete in-browser e-book reader
+* [Paged.js](https://gitlab.pagedmedia.org/tools/pagedjs) - CSS polyfill for paged (print) media
 
 # Memory usage
 
-Since this library was written with the fread.ink UI in mind, which uses WebKit, here are some results of brief tests on WebKit.
+Since this library was written with the [fread.ink](http:/fread.ink) UI in mind, which uses WebKit, here are some results of brief tests on WebKit.
 
 Using browserify vs. plain js with no build tool (and no require) had no measurable impact on memory usage.
 
@@ -173,7 +169,6 @@ Using browserify vs. plain js with no build tool (and no require) had no measura
 
 Important:
 
-* Turn this into a proper npm module
 * Unit tests
 
 Medium priority:
@@ -192,4 +187,4 @@ Medium priority:
 Minor bugs:
 
 * Fix `repeatTableHeader` doubling of table header if cut-off happens at top of table
-* Make `repeatTableHeader` work for backward pagination
+* `repeatTableHeader` doesn't work for backward pagination

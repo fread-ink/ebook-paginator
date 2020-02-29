@@ -1,0 +1,25 @@
+{
+  "name": "ebook-paginator",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fread-ink/ebook-paginator.git"
+  },
+  "dependencies": {
+    "postcss": "^7.0.27"
+  },
+  "author": {
+    "name": "Marc Juul",
+    "email": "npm@juul.io",
+    "url": "https://github.com/juul"
+  },
+  "devDependencies": {
+    "browserify": "^16.5.0",
+    "watchify": "^3.11.1"
+  },
+  "scripts": {
+    "build": "browserify example/script.js -o example/bundle.js",
+    "watch": "watchify example/script.js -o example/bundle.js"
+  },
+  "license": "AGPL-3.0"
+}
