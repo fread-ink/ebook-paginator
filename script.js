@@ -1,7 +1,8 @@
+'use strict';
 
 if(typeof require === 'function') {
   var postcss = require('postcss');
-  var postcssEpub = require('postcss-epub');
+  var postcssUnEpub = require('./postcss-unepub.js');
 }
 
 const breakAvoidVals = ['avoid', 'avoid-page'];
@@ -553,7 +554,7 @@ class Paginator {
     if(!this.opts.preprocessCSS || !postcss) {
       return css;
     }
-    var result = await postcss([postcssEpub])
+    var result = await postcss([postcssUnEpub])
         .process(css, {from: uri, to: uri+'.out'});
     
     return result.css;
@@ -614,7 +615,7 @@ class Paginator {
       preprocess: true
     }, opts || {});
     
-    if(opts.preprocess) {
+    if(opts.preprocessCSS) {
       css = await this.processCSS(css);
     }
     var el = this._injectCSS(css, (opts.order === 'before'));
@@ -1383,16 +1384,16 @@ class Paginator {
 async function init() {
 
   const pageID = 'page2';
-  
-//  const chapterURI = 'moby_dick_chapter.xhtml';
-  const chapterURI = 'test/encoding_detect_fail.html';
+  //  const chapterURI = 'test/encoding_detect_fail.html';
+  const chapterURI = 'moby_dick_chapter.xhtml';
 
   const paginator = new Paginator(pageID, {
     columnLayout: false,
     repeatTableHeader: false,
     cacheForwardPagination: false,
     loadScripts: true,
-    detectEncoding: true
+    detectEncoding: true,
+    preprocessCSS: true
   });
 
   await paginator.load(chapterURI);
