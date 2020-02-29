@@ -37,6 +37,8 @@ Where `pageID` is the `id=` of the element and `contentURI` is the URI of an HTM
 
 `cacheForwardPagination`: If this is true then the point at which page breaks happened during forward pagination are cached and re-used when backward paginating to the same pages. This is nice because backward pagination does not always result in page breaks in the same locations as forward pagination (due to CSS rules like break-before) but it may feel odd to the user if moving forward one page and then back one page gives a different result. By enabling caching the pages will be paginated the same. Note that backwards pagination is never cached/re-used, only forward pagination. This option has no effect if a location was arrived at by means other than forward paginating to the page (e.g. using a bookmark) since then no pagination results have been prevously cached. If this option is false then pagination is always re-calculated. This cache should be invalidated when e.g. font size or page size is changed using `.redraw(true)`. Default value for this option is true. 
 
+`detectEncoding`: Set to true to force manual detection of encoding. Useful in case the source (usually a web server) sends the wrong mimetype. E.g. if an XHTML file has the HTML extension the wrong mimetype will likely be sent and encoding detection can fail. This is enabled by default but can cause the source document to be re-parsed once or twice. See the _Detecting encoding_ sub-section under _Implementation details_ for more info.
+
 ## async load(contentURI)
 
 Load an HTML document from the specified URI and paginate the first page.
@@ -136,6 +138,20 @@ One way is to load the HTML in an iframe, put a `column-width` CSS style on the 
 Another way is to parse the source HTML with the browser's built-in DOM parser, then walk through the nodes in order, adding them to the desired page one by one, while checking whether the node caused the page to overflow, then backtracking. This is much more complicated from an implementation standpoint and has the disadvantage that it is actually slower in Chrome and Firefox (at least 40% and 30% slower respectively) but it is almost six times faster in WebKit _and_ can be done asynchronously such that it doesn't freeze the browser.
 
 There are two sub-types of this last method: One where overflow is checked using column-based layout as in the previously described method and one where overflow checked without resorting to column layout. The first sub-type is used by the [Paged.js](https://gitlab.pagedmedia.org/tools/pagedjs) paged media polyfill but this solution again suffers poor performance on WebKit. The second sub-type it employed by this library.
+
+## Detecting encoding
+
+The only way to automatically detect encoding on an HTML/XHTML that is loaded and parsed rather than just opened in a frame/iframe is to use XMLHTTPRequest with `.responseType = 'document'` and accessing `.responseXML`.
+
+[developer.mozilla.org](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/HTML_in_XMLHttpRequest) has this to say about how encoding is detected:
+
+> If the character encoding is declared in the HTTP Content-Type header, that character encoding is used. Failing that, if there is a byte order mark, the encoding indicated by the byte order mark is used. Failing that, if there is a <meta> element that declares the encoding within the first 1024 bytes of the file, that encoding is used. Otherwise, the file is decoded as UTF-8.
+
+However, the file `test/encoding_detect_fail.html` is detected by Firefox as having the encoding `windows-1252` even though it has no Byte Order Mark and the XML header specifies `utf-8` as the encoding.
+
+If the `.detectEncoding` option is set then a manual detection method is used. This first detects if the file is an XHTML document by looking for an `xmlns` property on the `<html>` tag , then detects encoding by checking, in order of presedence: The `encoding=` attribute of the `<?xml?>` header (if it's an XHTML document), then any `<meta content="... charset=<encoding>">` and `<meta charset="<encoding>">` tags where the last tag specifying an encoding overwrites all previous.
+
+If nothing is found, UTF-8 is assumed.
 
 # Other content paginators
 

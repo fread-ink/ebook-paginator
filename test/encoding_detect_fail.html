@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE html PUBLIC '-//W3C//DTD XHTML 1.1//EN' 'http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd'>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+  <title>Encoding detect fail</title>
+</head>
+  <body>
+    <p>The following symbol is supposed to be a left double quotation mark (Hex UTF-8 bytes 0xE2 0x80 0x9C): “</p>
+    <p>The detection fails on Firefox with Apache 2 serving the file and the symbol is rendered incorrectly. Works on Chrome and WebKit2</p>
+    <p>Firefox, chrome and WebKit all fail to detect that this is an XHTML file due to the wrong mimetype being sent by the webserver (due to the wrong file extension).</p>
+  </body>
+</html>
