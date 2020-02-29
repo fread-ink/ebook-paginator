@@ -194,7 +194,6 @@ Using browserify vs. plain js with no build tool (and no require) had no measura
 
 Important:
 
-* Running prevPage when on first page makes pagination stop working
 * Unit tests
 
 Medium priority:

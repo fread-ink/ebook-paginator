@@ -1069,6 +1069,7 @@ class Paginator {
     // don't paginate back before body
     if(curPageStartRef.node == this.doc.body) {
       this.curPage = 0;
+      this.paginating = false;
       return 0;
     }
     
