@@ -5,6 +5,14 @@ An example is in `example/`. Build it with `npm run build`. You need to host the
 
 The example doesn't take into account page resizing, scrolling or font size changes, so reload after changing any of that.
 
+# NPM
+
+This module is on `npm` so you can:
+
+```
+npm install ebook-paginator
+```
+
 # API
 
 Create an element (e.g. a <div>) with a specified height where you want the content to appear, then:
@@ -175,7 +183,7 @@ Medium priority:
 
 * Handle top-to-bottom text flow and mixed side-to-side/top-to-bottom content
 * Disable scripts from running and enable same-origin-policy while adding content, then when done adding content disable same-origin-policy before enabling scripts to run (if opts.allowScripts is true)
-* Add option to re-load <script> tags outside <body> after each pagination run (remove the elements before paginating, then re-add them after). Maybe figure out how to fake a document loaded event after each pagination as well?
+* Add option to re-load `<script>` tags outside `<body>` after each pagination run (remove the elements before paginating, then re-add them after). Maybe figure out how to fake a document loaded event after each pagination as well?
 
 # Nice to have
 
