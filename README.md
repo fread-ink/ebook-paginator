@@ -103,6 +103,23 @@ If the first element on a page is tall enough that it can't fit on the page, and
 
 When a page break happens inside an element where its width is determined by the contents, then the part of the element before and after the page break could have different widths. This is often noticable for `<table>` elements. The only way around this would be to finish paginating however many pages it takes before reaching the end of the element. Unfortunately the worst case scenario here is that showing a single page requires paginating the entire html file.
 
+While CSS rules from the source HTML should apply cleanly without modification, there is currently a few exceptions. The following rules are applid to the `<body>` element by this library:
+
+```
+body {
+  display: block !important; 
+  position: absolute !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+```
+
+That means that any margins or padding specified by the source HTML are ignored. This is probably OK for ebook-related use cases since the user will likely want control of margin/padding. It may however be possible to reduce or eliminate these in the future.
+
 ## break-inside
 
 Currently the `break-inside` values of 'avoid' and 'avoid-page' are handled correctly by this library. The value 'avoid-column' has nothing to with pagination so it is not handled by this library but may be handled by your browser.
@@ -177,13 +194,16 @@ Using browserify vs. plain js with no build tool (and no require) had no measura
 
 Important:
 
+* Running prevPage when on first page makes pagination stop working
 * Unit tests
 
 Medium priority:
 
 * Handle top-to-bottom text flow and mixed side-to-side/top-to-bottom content
 * Disable scripts from running and enable same-origin-policy while adding content, then when done adding content disable same-origin-policy before enabling scripts to run (if opts.allowScripts is true)
+* Reduce / eliminate the CSS rules applied to `<body>` by this library
 * Add option to re-load `<script>` tags outside `<body>` after each pagination run (remove the elements before paginating, then re-add them after). Maybe figure out how to fake a document loaded event after each pagination as well?
+
 
 # Nice to have
 

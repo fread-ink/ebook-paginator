@@ -18,8 +18,8 @@
     "watchify": "^3.11.1"
   },
   "scripts": {
-    "build": "browserify example/script.js -o example/bundle.js",
-    "watch": "watchify example/script.js -o example/bundle.js"
+    "build": "browserify example/example.js -o example/bundle.js",
+    "watch": "watchify example/example.js -o example/bundle.js"
   },
   "license": "AGPL-3.0"
 }

@@ -23,11 +23,6 @@ function getIframeHTML() {
           margin: 0 !important;
           padding: 0 !important;
         }
-  
-  /* TODO remove */
-  h2 {
-      break-before: page;
-  }
       </style>
     </head>
     <body>
@@ -468,9 +463,6 @@ class Paginator {
       this.pageBottom = this.page.getBoundingClientRect().bottom;
       this.pageTop = this.page.getBoundingClientRect().top;
     }
-
-    // TODO for debugging
-    document.body.addEventListener('keypress', this.onKeyPress.bind(this));
   }
 
   async load(chapterURI) {
@@ -979,6 +971,12 @@ class Paginator {
 
     const action = this.queuedAction;
     this.queuedAction = null;
+
+    // Is the queued action a 'gotoBookmark' ?
+    if(typeof queue === 'object') {
+      await this.gotoBookmark(action);
+      return;
+    }
     
     switch(action) {
       
@@ -1139,12 +1137,22 @@ class Paginator {
   }  
 
   async gotoBookmark(count, offset) {
+    if(this.paginating) {
+      if(!this.queuedAction) this.queue({count, offset});
+      return;
+    }
+    this.paginating = true;
+    
     if(typeof count === 'object') {
       offset = count.offset;
       count = count.count;
     }
+    
     const node = this.findNodeOrCount(this.doc.body, count);
-    if(!node) return;
+    if(!node) {
+      this.paginating = false
+      return false;
+    }
 
     const nextPageRef = await this.paginate(node, offset);
     this.curPage = 0
@@ -1155,7 +1163,9 @@ class Paginator {
     };
     delete nextPageRef.nodesTraversed;
     this.pages[1] = nextPageRef;
-    
+
+    this.paginating = false    
+    await this.processQueue();
   }
 
   getBookmark() {
@@ -1378,50 +1388,6 @@ class Paginator {
     }
 
     return await appendNode();
-  }
-
-  async speedTest() {
-    const t = Date.now();
-    console.log("Starting speed test");
-
-    var i = 0;
-    while(await this.nextPage()) {
-      i++
-    }
-    
-    console.log("Paginated", i, "pages in", (Date.now() - t) / 1000, "seconds");
-    alert((Date.now() - t) / 1000);
-  }
-  
-  async onKeyPress(e) {
-//    console.log(e.charCode);
-    switch(e.charCode) {
-      
-    case 32: // space
-      this.nextPage();
-      break;
-    case 114: // r
-      this.redraw();
-      break;
-    case 116: // t
-      this.speedTest();
-      break;
-    case 103: // g
-      //      this.gotoPage(50);
-      this.gotoBookmark(128, 196);
-      break;
-    case 113: // q
-      console.log('step');
-      if(nextStep) {
-        nextStep();
-        nextStep = null;
-      }
-      break;
-      
-    case 98: // 'b'
-      this.prevPage();
-      break;
-    }
   }
 
   getNodeCount() {
