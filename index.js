@@ -8,11 +8,12 @@ if(typeof require === 'function') {
 const breakAvoidVals = ['avoid', 'avoid-page'];
 const breakForceVals = ['always', 'all', 'page', 'left', 'right', 'recto', 'verso'];
 
-function getIframeHTML() {
+function getIframeHTML(headElements) {
   return `<!DOCTYPE html>
   <html>
     <head>
       <meta charset="utf-8">
+      ${headElements}
       <style type="text/css">
         body {
           display: block !important; 
@@ -422,7 +423,8 @@ class Paginator {
       preprocessCSS: true,
       cacheForwardPagination: true,
       repeatTableHeader: false,
-      detectEncoding: true
+      detectEncoding: true,
+      baseURI: undefined
     }, opts || {})
 
     // Does the page currently overflow elements at the top?
@@ -432,7 +434,7 @@ class Paginator {
     if(this.opts.columnLayout) {
       this.columnLayout = true;
     }
-    
+
     this.curPage = 0;
     this.pages = {};
 
@@ -446,10 +448,17 @@ class Paginator {
     this.containerElement.appendChild(this.iframeElement);
 
     // Add HTML to iframe document
+
+    var headTags = '';
+    if(this.opts.baseURI) {
+      let baseEl = document.createElement('BASE');
+      baseEl.href = this.opts.baseURI;
+      headTags = baseEl.outerHTML;
+    }
     
     this.iDoc = this.iframeElement.contentWindow.document;
     this.iDoc.open();
-    this.iDoc.write(getIframeHTML());
+    this.iDoc.write(getIframeHTML(headTags));
     this.iDoc.close();
     
     this.page = this.iDoc.body;
@@ -468,7 +477,6 @@ class Paginator {
 
   async load(chapterURI) {
     this.doc = await this.loadChapter(chapterURI);
-    console.log("DOC:", this.doc);
     
     if(this.opts.loadCSS) {
       await this.loadCSS();
@@ -1267,8 +1275,6 @@ class Paginator {
       } else {
         ({node, target, depth, forceAvoidInside} = this.appendPrevNode(node, target, depth));
       }
-
-      console.log("APPENDED:", node);
       
       if(!node || !target) {
         return null;

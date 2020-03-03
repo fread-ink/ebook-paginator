@@ -37,6 +37,8 @@ Where `pageID` is the `id=` of the element and `contentURI` is the URI of an HTM
 
 `detectEncoding`: Set to true to force manual detection of encoding. Useful in case the source (usually a web server) sends the wrong mimetype. E.g. if an XHTML file has the HTML extension the wrong mimetype will likely be sent and encoding detection can fail. This is enabled by default but can cause the source document to be re-parsed once or twice. See the _Detecting encoding_ sub-section under _Implementation details_ for more info.
 
+`baseURI`: Set the baseURI to be used by the paginated elements. E.g. if an `<img>` element is shown which has a relative `src=` URI then this option can be used to modify how it is resolved to an absolute URI.
+
 ## async load(contentURI)
 
 Load an HTML document from the specified URI and paginate the first page.
