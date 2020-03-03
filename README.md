@@ -156,7 +156,7 @@ The only way to automatically detect encoding on an HTML/XHTML that is loaded an
 
 > If the character encoding is declared in the HTTP Content-Type header, that character encoding is used. Failing that, if there is a byte order mark, the encoding indicated by the byte order mark is used. Failing that, if there is a <meta> element that declares the encoding within the first 1024 bytes of the file, that encoding is used. Otherwise, the file is decoded as UTF-8.
 
-However, the file `test/encoding_detect_fail.html` is detected by Firefox as having the encoding `windows-1252` even though it has no Byte Order Mark and the XML header specifies `utf-8` as the encoding.
+However, the file `test/encoding_detect_fail.html` is detected by Firefox as having the encoding `windows-1252` (at least when served up by Apache 2) even though it has no Byte Order Mark and the XML header specifies `utf-8` as the encoding.
 
 If the `.detectEncoding` option is set then a manual detection method is used. This first detects if the file is an XHTML document by looking for an `xmlns` property on the `<html>` tag , then detects encoding by checking, in order of presedence: The `encoding=` attribute of the `<?xml?>` header (if it's an XHTML document), then any `<meta content="... charset=<encoding>">` and `<meta charset="<encoding>">` tags where the last tag specifying an encoding overwrites all previous.
 
@@ -164,13 +164,11 @@ If nothing is found, UTF-8 is assumed.
 
 ## break-inside, break-before and break-after
 
-Some notes on native browser support of these features. This was true as of Febrary 25th 2020.
+Here are some notes on native browser support of these features. This was true as of Febrary 25th 2020.
 
 While `break-inside` can be used to avoid page breaks inside an element, `break-before` and `break-after` natively do nothing in firefox (not even when printing) but when set to 'column' then they do force a break when inside a column, but only on webkit and chrome. This works even when not printing. We could re-write the other similar values e.g. 'page', 'left', 'right', 'verso' and 'lefto' to 'column' and that would then work correctly in webkit.
 
-Using `break-before` or `break-after` with the value 'avoid', 'avoid-page', 'avoid-column' or 'avoid-region' does nothing in any of the browsers, not even when printing.
-
-Both of these are annoying to implement manually as they'd require us to backtrack if multiple successive elements have `break-*:avoid`.
+Using `break-before` or `break-after` with the value 'avoid', 'avoid-page', 'avoid-column' or 'avoid-region' does nothing in any of the browsers, not even when printing. Both of these are annoying to implement manually as they'd require us to backtrack if multiple successive elements have `break-*:avoid`.
 
 Webkit understands that `page-break-before:all` and `break-before:page` are aliases, so getting the computed style for `break-before` will work no matter which is set. Weirdly `break-before: column-avoid` isn't understood but setting `-webkit-column-break-before: avoid;` results in the value `avoid` when fetching the computed style for `break-before`. This is with WebKitGTK+ 2.26.2.
 
@@ -184,7 +182,7 @@ If you don't need speed or low memory consumption then take a look at:
 
 # Memory usage
 
-Since this library was written with the [fread.ink](http:/fread.ink) UI in mind, which uses WebKit, here are some results of brief tests on WebKit.
+Since this library was written with the [fread.ink UI](https://github.com/fread-ink/fread.ui) in mind, which uses WebKit, here are some results of brief tests on WebKit.
 
 Using browserify vs. plain js with no build tool (and no require) had no measurable impact on memory usage.
 
@@ -192,26 +190,28 @@ Using browserify vs. plain js with no build tool (and no require) had no measura
 
 # ToDo
 
-Important:
+In order of priority:
 
 * Unit tests
-
-Medium priority:
-
-* Handle top-to-bottom text flow and mixed side-to-side/top-to-bottom content
 * Disable scripts from running and enable same-origin-policy while adding content, then when done adding content disable same-origin-policy before enabling scripts to run (if opts.allowScripts is true)
+* Handle top-to-bottom text flow and mixed side-to-side/top-to-bottom content
 * Reduce / eliminate the CSS rules applied to `<body>` by this library
 * Add option to re-load `<script>` tags outside `<body>` after each pagination run (remove the elements before paginating, then re-add them after). Maybe figure out how to fake a document loaded event after each pagination as well?
 
+## Nice to have
 
-# Nice to have
-
-* Implement gotoPage()
+* Implement column based pagination as alternate strategy see [this example code](https://github.com/fread-ink/ebook-paginator/tree/iframe-paginator)
 * Figure out how to render partial table with same cell sizes as full table
-* Add pageCount function
+* Implement gotoPage()
 * Add support for at least the 'truthy' values for `break-after`
 
-Minor bugs:
+## Minor bugs:
 
 * Fix `repeatTableHeader` doubling of table header if cut-off happens at top of table
 * `repeatTableHeader` doesn't work for backward pagination
+
+# Copyright and license
+
+Copyright 2020 Marc Juul
+
+License: AGPLv3
