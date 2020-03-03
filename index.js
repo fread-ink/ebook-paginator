@@ -200,10 +200,11 @@ async function parseHTML(arrayBuffer) {
 async function request(uri, type) {
   var req = new Request(uri);
   var resp = await fetch(req);
-  if(!resp.ok || resp.status < 200 || resp.status > 299) {
+  // If .status is 0 then resp.ok does not have a useful value.
+  // This can happen with non-http URI schemes
+  if(resp.status && (!resp.ok || resp.status < 200 || resp.status > 299)) {
     throw new Error("Failed to get: " + uri);
   }
-
   if(!type) return await resp.text();
   
   return await resp[type]();
@@ -467,6 +468,7 @@ class Paginator {
 
   async load(chapterURI) {
     this.doc = await this.loadChapter(chapterURI);
+    console.log("DOC:", this.doc);
     
     if(this.opts.loadCSS) {
       await this.loadCSS();
@@ -1195,6 +1197,7 @@ class Paginator {
     var breakAtDepth = 0;
     var depth = 1; // current depth in DOM hierarchy
     var nodesAdded = 0;
+    var heightAdded = 0;
 
     this.page.innerHTML = ''; // clear the page container
     if(!offset) offset = 0;
@@ -1265,12 +1268,12 @@ class Paginator {
         ({node, target, depth, forceAvoidInside} = this.appendPrevNode(node, target, depth));
       }
 
+      console.log("APPENDED:", node);
+      
       if(!node || !target) {
         return null;
       }
       
-
-
       // Since appendPrevNode sometimes appends multiple nodes
       // in order to re-create ancestor structure, it does its own checking
       // of whether we should avoid breaking inside a node
@@ -1305,14 +1308,8 @@ class Paginator {
 
       var didOverflow = await this.didOverflow(target, reverse);
       
-      // If the page number changes while we are paginating
-      // then stop paginating immediately
-      if(curPage !== this.curPage) {
-        return null;
-      }
-      
-      // If the first non-text node added to the page caused an overflow
-      if(didOverflow && nodesAdded <= 0 && target.nodeType !== Node.TEXT_NODE) {
+      // If the first non-zero height node added to the page caused an overflow
+      if(didOverflow && heightAdded <= 1) {
 
         // Force the node to fit
         let r = this.page.getBoundingClientRect();
@@ -1380,6 +1377,7 @@ class Paginator {
         // Count all nodes except pure whitespace text nodes
         if(!(target.nodeType === Node.TEXT_NODE && !target.textContent.trim().length)) {
           nodesAdded++;
+          heightAdded += target.offsetHeight;
         }
       }
 
