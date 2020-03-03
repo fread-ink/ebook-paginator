@@ -1,6 +1,6 @@
 'use strict';
 
-var Paginator = require('../script.js');
+var Paginator = require('../index.js');
 
 async function init() {
 

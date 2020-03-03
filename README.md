@@ -18,6 +18,7 @@ npm install ebook-paginator
 Create an element (e.g. a <div>) with a specified height where you want the content to appear, then:
 
 ```
+const Paginator = require('Paginator');
 const paginator = new Paginator(pageID, {});
 await paginator.load(contentURI);
 ```
