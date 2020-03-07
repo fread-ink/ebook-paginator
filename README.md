@@ -47,13 +47,19 @@ Load an HTML document from the specified URI and paginate the first page.
 
 Paginate another pageful of content in the forward direction.
 
+Returns `false` if it reached the end of the source document during pagination. Otherwise returns `true`.
+
 ## async prevPage()
 
 Paginate another pageful of content in the backward direction.
 
+Returns `false` if it reached the beginning of the source document during pagination. If the beginning of the document is also the last page of the document the return value will be `undefined`. Otherwise returns `true`.
+
 ## async firstPage()
 
 Go to beginning of document and paginate a pageful of content.
+
+Returns `false` if it reached the beginning of the source document during pagination. Otherwise returns `true`.
 
 ## getBookmark()
 
