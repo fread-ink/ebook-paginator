@@ -1188,7 +1188,7 @@ class Paginator {
   async paginateBackwards(node, offset) {
     this.setOverflowTop();
     const ret = await this.paginate(node, offset, true)
-//    this.setOverflowBottom();
+    this.setOverflowBottom();
     return ret;
   }
     
