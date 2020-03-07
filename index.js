@@ -573,7 +573,7 @@ class Paginator {
           if(el.getAttribute('disabled')) continue;
           uri = el.getAttribute('href');
           if(!uri) continue;
-          css = await request(uri);
+          css = await request(this.opts.baseURI + uri);
         } else { // <style> tags
           css = el.innerHTML;
         }
