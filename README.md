@@ -199,7 +199,7 @@ Using browserify vs. plain js with no build tool (and no require) had no measura
 
 # ToDo
 
-* BUG: When paginating backwards and then forwards on the same large text element things break.
+* BUG: Off by one error with quotes at the end when backward paginating (when not caching)
 * Unit tests
 * Disable scripts from running and enable same-origin-policy while adding content, then when done adding content disable same-origin-policy before enabling scripts to run (if opts.allowScripts is true)
 * Handle top-to-bottom text flow and mixed side-to-side/top-to-bottom content

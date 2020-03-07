@@ -1210,7 +1210,7 @@ class Paginator {
     if(!offset) offset = 0;
     
     if(!node) return {node: null};
-
+    
     // if we're not on the first node in the source document
     if(toLower(node.tagName) !== 'body') {
 
@@ -1265,7 +1265,7 @@ class Paginator {
     const appendNode = async (firstRun) => {
       var forceAvoidInside, traversed;
 
-      if(!firstRun) {
+      if(!firstRun || toLower(node.tagName) === 'body') {
         // Get the next/prev node in the source document in order recursively
         // and shallow copy the node to the corresponding spot in
         // the target location (inside this.page)
@@ -1313,7 +1313,7 @@ class Paginator {
       }
 
       var didOverflow = await this.didOverflow(target, reverse);
-      
+
       // If the first non-zero height
       // non-text node added to the page caused an overflow
       if(didOverflow && heightAdded <= 1 && target.nodeType !== Node.TEXT_NODE) {
@@ -1323,7 +1323,6 @@ class Paginator {
         target.style.width = 'auto';
         target.style.maxWidth = r.width + 'px';
         target.style.maxHeight = r.height + 'px';
-
         didOverflow = false;
       }  
       
