@@ -486,7 +486,7 @@ class Paginator {
       this.loadScripts();
     }
     
-    await this.firstPage(); 
+    return await this.firstPage(); 
   }
 
   getDocumentLanguage() {
@@ -977,31 +977,26 @@ class Paginator {
   }
 
   async processQueue() {
-    if(!this.queuedAction) return;
+    if(!this.queuedAction) return true;
 
     const action = this.queuedAction;
     this.queuedAction = null;
 
     // Is the queued action a 'gotoBookmark' ?
     if(typeof queue === 'object') {
-      await this.gotoBookmark(action);
-      return;
+      return await this.gotoBookmark(action);
     }
     
     switch(action) {
       
     case 'first':
-      await this.firstPage();
-      break;
+      return await this.firstPage();
     case 'next':
-      await this.nextPage();
-      break;
+      return this.nextPage();
     case 'prev':
-      await this.prevPage();
-      break;
+      return await this.prevPage();
     case 'redraw':
-      await this.redraw();
-      break;
+      return await this.redraw();
     }
   }
 
@@ -1026,13 +1021,13 @@ class Paginator {
     const nextPageStartRef = await this.paginate(this.doc.body, 0);
     if(!nextPageStartRef || !nextPageStartRef.node) {
       this.paginating = false
-      return false;
+      return false; // no more pages
     }
 
     this.pages[this.curPage+1] = nextPageStartRef;
     
     this.paginating = false    
-    await this.processQueue();
+    return await this.processQueue();
   }
   
   async nextPage() {
@@ -1060,7 +1055,7 @@ class Paginator {
     this.pages[this.curPage+1] = nextPageStartRef;
 
     this.paginating = false;
-    await this.processQueue();
+    return await this.processQueue();
   }
 
   async prevPage() {
@@ -1073,14 +1068,14 @@ class Paginator {
     const curPageStartRef = this.pages[this.curPage];
     if(!curPageStartRef || !curPageStartRef.node) {
       this.paginating = false;
-      return false;
+      return false; // no more pages
     }
 
     // don't paginate back before body
     if(curPageStartRef.node == this.doc.body) {
       this.curPage = 0;
       this.paginating = false;
-      return 0;
+      return false; // no more pages
     }
     
     this.curPage--;
@@ -1102,8 +1097,11 @@ class Paginator {
         // no more pages
         this.curPage = 0;
         this.paginating = false;
-        await this.firstPage();
-        return;
+        const r = await this.firstPage();
+        if(!r || !r.node) {
+          return undefined; // no more pages in both directions
+        }
+        return false; // no more pages going backward
       }
       
       this.pages[this.curPage] = prevPageStartRef;
@@ -1115,7 +1113,7 @@ class Paginator {
     }
 
     this.paginating = false;
-    await this.processQueue();
+    return await this.processQueue();
   }
 
   async redraw(doInvalidateCache) {
@@ -1137,7 +1135,7 @@ class Paginator {
     const nextPageRef = await this.paginate(curPageRef.node, curPageRef.offset);
 
     this.paginating = false;
-    await this.processQueue();
+    return await this.processQueue();
   }
 
   // invalidate all but the reference to the start of the current page
@@ -1176,7 +1174,7 @@ class Paginator {
     this.pages[1] = nextPageRef;
 
     this.paginating = false    
-    await this.processQueue();
+    return await this.processQueue();
   }
 
   getBookmark() {
