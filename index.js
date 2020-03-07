@@ -677,14 +677,14 @@ class Paginator {
   // Get combined bottom-padding and bottom-spacing of element
   getBottomSpacing(el) {
     if(!el) return 0;
-    const style = window.getComputedStyle(el);
+    const style = this.iframeElement.contentWindow.getComputedStyle(el);
     return (parseFloat(style.getPropertyValue('padding-bottom')) || 0) + (parseFloat(style.getPropertyValue('margin-bottom')) || 0);
   }
 
   // Get combined top-padding and top-spacing of element
   getTopSpacing(el) {
     if(!el) return 0;
-    const style = window.getComputedStyle(el);
+    const style = this.iframeElement.contentWindow.getComputedStyle(el);
     return (parseFloat(style.getPropertyValue('padding-top')) || 0) + (parseFloat(style.getPropertyValue('margin-top')) || 0);
   }
   
@@ -719,7 +719,7 @@ class Paginator {
       rect = node.getBoundingClientRect();
       el = node;
     } else { // handle text nodes
-      const range = document.createRange();
+      const range = this.iDoc.createRange();
       range.selectNode(node);
       rect = range.getBoundingClientRect();
       el = this.getFirstElementAncestor(node);
@@ -822,10 +822,10 @@ class Paginator {
   // Uses binary search to speed up the process.
   // Returns -1 if offset could not be found.
   findOverflowOffset(node, topOverflow) {
-    const range = document.createRange();
+    const range = this.iDoc.createRange();
     range.selectNode(node);
     range.setStart(node, 0);
-    
+
     const el = this.getFirstElementAncestor(node);
 
     if(this.columnLayout) {
@@ -847,6 +847,7 @@ class Paginator {
     // init binary search
     // `i` is the index into the text
     var i = Math.round((len-1) / 2);
+
     if(len === 2) {
       i = 1;
     }
@@ -1187,7 +1188,7 @@ class Paginator {
   async paginateBackwards(node, offset) {
     this.setOverflowTop();
     const ret = await this.paginate(node, offset, true)
-    this.setOverflowBottom();
+//    this.setOverflowBottom();
     return ret;
   }
     
@@ -1226,7 +1227,7 @@ class Paginator {
       // If the last page ended in the middle of a text node
       // create a new text node with the remaining content
       if(offset) {
-        
+
         if(!reverse) {
           tmp = document.createTextNode(node.textContent.slice(offset));
         } else {
@@ -1234,7 +1235,7 @@ class Paginator {
         }
         target.appendChild(tmp);
         
-        if(await this.didOverflow(tmp)) {
+        if(await this.didOverflow(tmp, reverse)) {
           let newOffset = this.findOverflowOffset(tmp, reverse);
           target.removeChild(tmp);
           
@@ -1260,18 +1261,19 @@ class Paginator {
       }
 
     }
-
-    const appendNode = async (cb) => {
+    
+    const appendNode = async (firstRun) => {
       var forceAvoidInside, traversed;
-      
-      // Get the next/prev node in the source document in order recursively
-      // and shallow copy the node to the corresponding spot in
-      // the target location (inside this.page)
-      if(!reverse) {
-        ({node, target, depth} = appendNextNode(node, target, depth));
-        
-      } else {
-        ({node, target, depth, forceAvoidInside} = this.appendPrevNode(node, target, depth));
+
+      if(!firstRun) {
+        // Get the next/prev node in the source document in order recursively
+        // and shallow copy the node to the corresponding spot in
+        // the target location (inside this.page)
+        if(!reverse) {
+          ({node, target, depth} = appendNextNode(node, target, depth));
+        } else {
+          ({node, target, depth, forceAvoidInside} = this.appendPrevNode(node, target, depth));
+        }
       }
       
       if(!node || !target) {
@@ -1312,8 +1314,9 @@ class Paginator {
 
       var didOverflow = await this.didOverflow(target, reverse);
       
-      // If the first non-zero height node added to the page caused an overflow
-      if(didOverflow && heightAdded <= 1) {
+      // If the first non-zero height
+      // non-text node added to the page caused an overflow
+      if(didOverflow && heightAdded <= 1 && target.nodeType !== Node.TEXT_NODE) {
 
         // Force the node to fit
         let r = this.page.getBoundingClientRect();
@@ -1323,7 +1326,7 @@ class Paginator {
 
         didOverflow = false;
       }  
-
+      
       // If reverse paginating and we didn't overflow
       // and we should break before the current node
       // then we're done with this page.
@@ -1346,7 +1349,6 @@ class Paginator {
 
           // Find the position inside the text node where we should break
           offset = this.findOverflowOffset(target, reverse);
-
           tmp = target.parentNode;
           tmp.removeChild(target);
 
@@ -1361,7 +1363,7 @@ class Paginator {
           } else {
             if(offset < (node.textContent.length - 1)) {
               target = document.createTextNode(node.textContent.slice(offset));
-              tmp.appendChild(target);
+              appendAsFirstChild(tmp, target);
             } else {
               target = tmp;
               offset = null;
@@ -1390,7 +1392,7 @@ class Paginator {
       return await appendNode();
     }
 
-    return await appendNode();
+    return await appendNode(true);
   }
 
   getNodeCount() {
