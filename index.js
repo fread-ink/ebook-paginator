@@ -674,6 +674,26 @@ class Paginator {
     return node;
   }
 
+  getAncestorsCombinedBottomSpacing(el) {
+    if(!el) return 0;
+    var spacing = 0;
+    while(toLower(el.tagName) !== 'body') {
+      spacing += this.getBottomSpacing(el);
+      el = el.parentNode;
+    }
+    return spacing;
+  }
+
+  getAncestorsCombinedTopSpacing(el) {
+    if(!el) return 0;
+    var spacing = 0;
+    while(toLower(el.tagName) !== 'body') {
+      spacing += this.getTopSpacing(el);
+      el = el.parentNode;
+    }
+    return spacing;
+  }
+  
   // Get combined bottom-padding and bottom-spacing of element
   getBottomSpacing(el) {
     if(!el) return 0;
@@ -726,7 +746,7 @@ class Paginator {
     }
 
     if(el) {
-      spacing = this.getBottomSpacing(el)
+      spacing = this.getAncestorsCombinedBottomSpacing(el)
     } else {
       spacing = 0;
     }
@@ -852,6 +872,13 @@ class Paginator {
       i = 1;
     }
 
+    var spacing;
+    if(!topOverflow) {
+      spacing = this.getAncestorsCombinedBottomSpacing(el)
+    } else {
+      spacing = this.getAncestorsCombinedTopSpacing(el)
+    }
+    
     while(true) {
 
       if(i < 0) i = 0;
@@ -873,14 +900,14 @@ class Paginator {
         }
       } else {
         if(!topOverflow) {
-          bottom = Math.round(range.getBoundingClientRect().bottom + this.getBottomSpacing(el));
+          bottom = Math.round(range.getBoundingClientRect().bottom + spacing);
           if(bottom > pageBottom) {
             tooFar = true;
           } else {
             tooFar = false;
           }
         } else {
-          top = Math.round(range.getBoundingClientRect().top - this.getTopSpacing(el));
+          top = Math.round(range.getBoundingClientRect().top - spacing);
           if(top < 0) {
             tooFar = true;
           } else {
