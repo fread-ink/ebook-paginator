@@ -220,3 +220,5 @@ Using browserify vs. plain js with no build tool (and no require) had no measura
 
 * Copyright 2020 Marc Juul Christoffersen
 * License: AGPLv3
+
+See `LICENSE` file for full license text.
