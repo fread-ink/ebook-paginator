@@ -208,6 +208,7 @@ Using browserify vs. plain js with no build tool (and no require) had no measura
 
 * Implement column based pagination as alternate strategy see [this example code](https://github.com/fread-ink/ebook-paginator/tree/iframe-paginator)
 * Figure out how to render partial table with same cell sizes as full table
+* Implement gotoLastPage() (start at last node, then backward paginate)
 * Implement gotoPage()
 * Add support for at least the 'truthy' values for `break-after`
 
