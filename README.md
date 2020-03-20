@@ -90,7 +90,7 @@ Same as `injectCSS()` but takes a URI to a CSS file.
 
 ## clearCSS(clearAll)
 
-Remove all injected CSS elements. If `clearAll` is true, then remove _all_ CSS, including CSS from the source document (except in-line CSS).
+Remove all injected CSS elements. If `clearAll` is true, then remove _all_ CSS, including CSS from the source document (except in-line CSS in `style=` attributes).
 
 ## Experimental constructor options
 
@@ -100,7 +100,7 @@ Remove all injected CSS elements. If `clearAll` is true, then remove _all_ CSS, 
 
 # Usage without npm
 
-If you don't need the CSS pre-processing then you don't need `npm` nor `browserify` or any build tool. You can simply load `script.js` directly in your browser.
+If you don't need the CSS pre-processing then you don't need `npm` nor `browserify` nor any build tool. You can simply load `script.js` directly in your browser.
 
 # Quirks and limitations
 
@@ -108,11 +108,11 @@ Vertical text layout modes (e.g. `writing-mode: vertical-rl`) are not yet suppor
 
 If an element has a specified height, e.g. `height: 100px` then a page break will never happen inside of the element.
 
-If the first element on a page is tall enough that it can't fit on the page, and the paginator does not know how to break inside of the element (e.g. an <img> or an element with a specified height), then the element will have its `width` set to 'auto' and its `max-height` set to the height of the page.
+If the first element on a page is tall enough that it can't fit on the page, and the paginator does not know how to break inside of the element (e.g. an `<img>` or an element with a specified height), then the element will have its `width` set to 'auto' and its `max-height` set to the height of the page.
 
-When a page break happens inside an element where its width is determined by the contents, then the part of the element before and after the page break could have different widths. This is often noticable for `<table>` elements. The only way around this would be to finish paginating however many pages it takes before reaching the end of the element. Unfortunately the worst case scenario here is that showing a single page requires paginating the entire html file.
+When a page break happens inside an element where its width is determined by the contents, then the part of the element before and after the page break could have different widths. This is often noticable for `<table>` elements. This could be solved in the future by pre-rendering the entire table in an element of the same width as the current page to figure out correct column widths.
 
-While CSS rules from the source HTML should apply cleanly without modification, there is currently a few exceptions. The following rules are applid to the `<body>` element by this library:
+While CSS rules from the source HTML should apply cleanly without modification, there is currently a few exceptions. The following rules are applied to the `<body>` element by this library:
 
 ```
 body {
@@ -131,7 +131,7 @@ That means that any margins or padding specified by the source HTML are ignored.
 
 ## break-inside
 
-Currently the `break-inside` values of 'avoid' and 'avoid-page' are handled correctly by this library. The value 'avoid-column' has nothing to with pagination so it is not handled by this library but may be handled by your browser.
+Currently the `break-inside` values of 'avoid' and 'avoid-page' are handled correctly by this library. The value 'avoid-column' has nothing to do with pagination so it is not handled by this library but may be handled by your browser.
 
 ## break-before / break-after
 
@@ -139,11 +139,11 @@ Currently only `break-before` with a values of 'always', 'all', 'page', 'left', 
 
 ## Backward pagination
 
-The simple way to implement backward pagination is to simply cache where the page boundaries occurred during forward pagination and re-use those locations when backward paginating. The problem occurs when the user arrives at a page without forward paginating to that page. This can occur by clicking a link or bookmark. Another issue pops up if the font size or page size is changed, which would invalidate the cache. One way to solve this would be to forward paginate from page 1 to the current location in the background to re-build the cache. This would be problematic, both for perfomance reasons, but also because there is no guarantee that a page boundary matches up with the location of the link or bookmark. It would be odd if going to a bookmarked location takes you to a page where the bookmarked location is right at the bottom of the page.
+The simple way to implement backward pagination is to simply cache where the page boundaries occurred during forward pagination and re-use those locations when backward paginating. The problem occurs when the user arrives at a page without forward paginating to that page. This can occur by clicking a link or bookmark. Another issue pops up if the font size or page size is changed, which would invalidate the cache. One way to solve this would be to forward paginate from page 1 to the current location in the background to re-build the cache. This would be problematic, both for perfomance reasons, but also because there is no guarantee that a page boundary matches up with the location of the link or bookmark. It would be odd if going to a bookmarked location takes you to a page where the bookmarked location is near the bottom of the page.
 
-Another way to solve this, and the method used by this code, is to implement pagination in the backward direction such that it becomes possible to start paginating forward or backward from any point in a book. The problem with this solution is that paginating backward and forward will sometimes give different results for the same page. That is: Moving one page forward and then one page back can result in different content being shown. This is due to CSS rules such as `break-before` which can cause a bunch of empty space at the end of a page when paginating forward but not when paginating backward.
+Another way to solve this, and the method used by this code, is to also implement pagination in the backward direction such that it becomes possible to start paginating forward or backward from any point in a book. The problem with this solution is that paginating backward and forward will sometimes give different results for the same page. That is: Moving one page forward and then one page back can result in different content being shown. This is due to CSS rules such as `break-before` which can cause a bunch of empty space at the end of a page when paginating forward but not when paginating backward.
 
-If the `cacheForwardPagination` option is true (the default) then a hybrid solution is used where the results of forward pagination are remembered and re-used when backward pagination such that moving back and forth over the same pages won't give different results. However, if no forward pagination has has occurred before backward paginating (or the cache has been invalidated by font or page size changes) then true backward paginating is used.
+If the `cacheForwardPagination` option is true (the default) then a hybrid solution is used where the results of forward pagination are remembered and re-used when backward-paginating such that moving back and forth over the same pages won't give different results. However, if no forward pagination has occurred before backward paginating (or the cache has been invalidated by font or page size changes) then true backward pagination is used.
 
 # Implementation details
 
@@ -151,11 +151,11 @@ If the `cacheForwardPagination` option is true (the default) then a hybrid solut
 
 There are at least a few good ways to accomplish this type of pagination.
 
-One way is to load the HTML in an iframe, put a `column-width` CSS style on the iframe that makes the content reflow into a page the exact width of the desired page, resize the iframe to make it wide enough to fit the entire HTML document and then move the iframe element left one page width at a time to show the next page. This solution has the advantage that it is simple to implement and is in fact used by [Epub.js](https://github.com/futurepress/epub.js) but has the following issues. First, it freezes the browser tab until pagination is done and even on Chrome, which is very fast at column layout, paginating a 1000 page HTML page will take multiple seconds on slower computer. On WebKit column layout is slow, and laying out a 1000 page HTML page can take over a minute! Another issue is that CSS rules relating to column layout inside the HTML may malfunction, e.g. the `break-inside:avoid-column` will act as `break-inside:avoid-page`. A proof of concept example of this type of implementation is in the [iframe-paginator](https://github.com/Juul/iframe-paginator/tree/iframe-paginator) branch of this repo.
+One way is to load the HTML in an iframe, put a `column-width` CSS style on the iframe that makes the content reflow into a page the exact width of the desired page, resize the iframe to make it wide enough to fit the entire HTML document and then move the iframe element left one page width at a time to show the next page. This solution has the advantage that it is simple to implement and is in fact used by [Epub.js](https://github.com/futurepress/epub.js) but has the following issues. First, it freezes the browser tab until pagination is done and even on Chrome, which is very fast at column layout, paginating a 1000 page HTML document will take multiple seconds on slower computer (and this is a realistic number of pages for some ebook chapters). On WebKit, column layout is slow and laying out a 1000 page HTML page can take over a minute! Another issue is that CSS rules relating to column layout inside the HTML may malfunction, e.g. the `break-inside:avoid-column` will act as `break-inside:avoid-page`. A proof of concept example of this type of implementation is in the [iframe-paginator](https://github.com/Juul/iframe-paginator/tree/iframe-paginator) branch of this repo.
 
-Another way is to parse the source HTML with the browser's built-in DOM parser, then walk through the nodes in order, adding them to the desired page one by one, while checking whether the node caused the page to overflow, then backtracking. This is much more complicated from an implementation standpoint and has the disadvantage that it is actually slower in Chrome and Firefox (at least 40% and 30% slower respectively) but it is almost six times faster in WebKit _and_ can be done asynchronously such that it doesn't freeze the browser.
+Another way is to parse the source HTML with the browser's built-in DOM parser, then walk through the nodes in order, adding them to the desired page one by one, while checking whether the node caused the page to overflow, then backtracking. This is much more complicated from an implementation standpoint and has the disadvantage that it is actually slower in Chrome and Firefox (at least 40% and 30% slower respectively) but it is almost six times faster in WebKit and more importantly: It can be done asynchronously such that it doesn't have to paginate the entire document just to show a single page.
 
-There are two sub-types of this last method: One where overflow is checked using column-based layout as in the previously described method and one where overflow checked without resorting to column layout. The first sub-type is used by the [Paged.js](https://gitlab.pagedmedia.org/tools/pagedjs) paged media polyfill but this solution again suffers poor performance on WebKit. The second sub-type it employed by this library.
+There are two sub-types of this last method: One where overflow is checked using column-based layout as in the previously described method and one where overflow checked without resorting to column layout. The first sub-type is used by the [Paged.js](https://gitlab.pagedmedia.org/tools/pagedjs) paged media polyfill but this solution again suffers poor performance on WebKit. The second sub-type is employed by this library.
 
 ## Detecting encoding
 
@@ -165,11 +165,9 @@ The only way to automatically detect encoding on an HTML/XHTML that is loaded an
 
 > If the character encoding is declared in the HTTP Content-Type header, that character encoding is used. Failing that, if there is a byte order mark, the encoding indicated by the byte order mark is used. Failing that, if there is a <meta> element that declares the encoding within the first 1024 bytes of the file, that encoding is used. Otherwise, the file is decoded as UTF-8.
 
-However, the file `test/encoding_detect_fail.html` is detected by Firefox as having the encoding `windows-1252` (at least when served up by Apache 2) even though it has no Byte Order Mark and the XML header specifies `utf-8` as the encoding.
+However, the file `test/encoding_detect_fail.html` is detected by Firefox as having the encoding `windows-1252` (at least when served up by Apache 2) even though it has no Byte Order Mark and the XML header specifies `utf-8` as the encoding. Neither WebKit nor Chrome have this issue.
 
-If the `.detectEncoding` option is set then a manual detection method is used. This first detects if the file is an XHTML document by looking for an `xmlns` property on the `<html>` tag , then detects encoding by checking, in order of presedence: The `encoding=` attribute of the `<?xml?>` header (if it's an XHTML document), then any `<meta content="... charset=<encoding>">` and `<meta charset="<encoding>">` tags where the last tag specifying an encoding overwrites all previous.
-
-If nothing is found, UTF-8 is assumed.
+If the `.detectEncoding` option is set (the default) then a manual detection method is used. This first detects if the file is an XHTML document by looking for an `xmlns` property on the `<html>` tag , then detects encoding by checking, in order of presedence: The `encoding=` attribute of the `<?xml?>` header (if it's an XHTML document), then any `<meta content="... charset=<encoding>">` and `<meta charset="<encoding>">` tags where the last tag specifying an encoding overwrites all previous. If nothing is found, UTF-8 is assumed.
 
 ## break-inside, break-before and break-after
 
@@ -220,6 +218,5 @@ Using browserify vs. plain js with no build tool (and no require) had no measura
 
 # Copyright and license
 
-Copyright 2020 Marc Juul
-
-License: AGPLv3
+* Copyright 2020 Marc Juul Christoffersen
+* License: AGPLv3
