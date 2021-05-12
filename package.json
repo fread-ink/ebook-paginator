@@ -6,7 +6,7 @@
     "url": "https://github.com/fread-ink/ebook-paginator.git"
   },
   "dependencies": {
-    "postcss": "^7.0.27"
+    "postcss": "^8.2.10"
   },
   "author": {
     "name": "Marc Juul",
